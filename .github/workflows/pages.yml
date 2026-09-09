@@ -1,0 +1,64 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, claude/github-pages-setup-js6c78]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; queued runs supersede rather than cancel,
+# so a merge never leaves the site half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax-check every module
+        run: for f in $(find assets/js -name '*.js'); do node --check "$f"; done
+
+      - name: Engine smoke test
+        run: node tests/smoke.mjs
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Serve the site
+        run: |
+          python3 -m http.server 8899 >/tmp/serve.log 2>&1 &
+          for i in $(seq 1 20); do curl -sf http://localhost:8899/index.html >/dev/null && break; sleep 0.5; done
+
+      - name: End-to-end browser test
+        run: node tests/browser.mjs
+        env:
+          BASE: http://localhost:8899
+          PLAYWRIGHT_MODULE: playwright
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
