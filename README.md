@@ -7,7 +7,14 @@ FRAME is not an AI architect, a house generator or an image generator. It genera
 explainable and increasingly buildable design options, and connects every design decision to its
 consequences — cost, daylight, solar load, structure, planning and feasibility.
 
-**Live site:** GitHub Pages, deployed from this repository (Settings → Pages → *Source: GitHub Actions*).
+**Live site:** GitHub Pages, deployed from this repository by `.github/workflows/pages.yml`.
+
+> **One-time setup.** Pages has to be switched on by a repository admin before the first deploy can
+> succeed: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The workflow asks
+> `configure-pages` to enable it automatically, but the Actions token is not permitted to create a
+> Pages site in this repository (`Resource not accessible by integration`), so the switch has to be
+> flipped by hand once. After that, every push to the deploy branch publishes automatically — re-run
+> the latest workflow from the Actions tab to publish immediately.
 
 ![FRAME wordmark](assets/img/frame-wordmark.jpg)
 
