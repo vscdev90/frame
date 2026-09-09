@@ -177,6 +177,52 @@ await step('projects list and reload persistence', async () => {
   if (!text.includes('House Bloemendaal')) throw new Error('project did not persist');
 });
 
+await step('pinch to zoom in the 3D viewer', async () => {
+  const id = await page.evaluate(() => JSON.parse(localStorage.getItem('frame.projects.v1'))[0].id);
+  await page.goto(`${BASE}/index.html#/project/${id}/workspace`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500); // let the viewer mount or fall back
+
+  const canvas = page.locator('#vp-body canvas');
+  if (!(await canvas.count())) {
+    // The Three.js CDN is unreachable here, so the app fell back to the
+    // isometric renderer. Nothing to gesture at.
+    process.stdout.write('skipped (3D viewer unavailable) … ');
+    return;
+  }
+
+  const before = await canvas.screenshot();
+
+  // Two fingers, spreading apart: the model should come closer.
+  await page.evaluate(() => {
+    const el = document.querySelector('#vp-body canvas');
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const fire = (type, id, x, y) => el.dispatchEvent(new PointerEvent(type, {
+      pointerId: id, pointerType: 'touch', isPrimary: id === 1,
+      clientX: x, clientY: y, bubbles: true, cancelable: true
+    }));
+    fire('pointerdown', 1, cx - 40, cy);
+    fire('pointerdown', 2, cx + 40, cy);
+    for (let i = 1; i <= 8; i++) {
+      fire('pointermove', 1, cx - 40 - i * 12, cy);
+      fire('pointermove', 2, cx + 40 + i * 12, cy);
+    }
+    fire('pointerup', 1, cx - 136, cy);
+    fire('pointerup', 2, cx + 136, cy);
+  });
+  await page.waitForTimeout(300);
+
+  const after = await canvas.screenshot();
+  if (Buffer.compare(before, after) === 0) throw new Error('pinching the viewer did not change the view');
+
+  // A double tap reframes, so the view should change again.
+  await canvas.dispatchEvent('dblclick');
+  await page.waitForTimeout(300);
+  const reframed = await canvas.screenshot();
+  if (Buffer.compare(after, reframed) === 0) throw new Error('double click did not reframe the model');
+});
+
 await step('every page fits a 390px phone', async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   const id = await page.evaluate(() => JSON.parse(localStorage.getItem('frame.projects.v1'))[0].id);

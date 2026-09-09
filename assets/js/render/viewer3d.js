@@ -12,6 +12,34 @@
 
 const CDN = 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js';
 
+export const MIN_RADIUS = 8;
+export const MAX_RADIUS = 220;
+
+/**
+ * Pinch zoom: the camera distance scales inversely with the distance
+ * between the fingers, so spreading them moves the camera closer.
+ * Pure so it can be tested without a WebGL context.
+ */
+export function pinchRadius(startRadius, startSpan, span) {
+  const safeSpan = Math.max(1, span);
+  return clamp((startRadius * startSpan) / safeSpan, MIN_RADIUS, MAX_RADIUS);
+}
+
+/**
+ * Ground-plane pan. `right` and `forward` are the camera's horizontal
+ * axes at the current orbit angle, so a drag always pushes the model the
+ * way the hand went. Returns the delta to add to the orbit target.
+ */
+export function panOffset(theta, radius, dx, dy) {
+  const scale = radius * 0.0016;
+  const right = { x: -Math.sin(theta), z: Math.cos(theta) };
+  const forward = { x: -Math.cos(theta), z: -Math.sin(theta) };
+  return {
+    x: (-right.x * dx + forward.x * dy) * scale,
+    z: (-right.z * dx + forward.z * dy) * scale
+  };
+}
+
 let THREE = null;
 let loadPromise = null;
 
@@ -80,53 +108,122 @@ export async function mountViewer(container, model, options = {}) {
   frameCamera(model, state);
 
   // --- Interaction ---------------------------------------------------
-  let dragging = null;
+  // Pointer events cover mouse, pen and touch alike. Active pointers are
+  // tracked by id so one finger orbits and two fingers pinch to zoom and
+  // pan together — the gesture a phone user expects from a map.
   const el = renderer.domElement;
+  const pointers = new Map();
+  let orbitFrom = null;
+  let pinch = null;
+
+  const pointerList = () => [...pointers.values()];
+
+  function pinchSpan() {
+    const [a, b] = pointerList();
+    return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+  }
+  function pinchCentre() {
+    const [a, b] = pointerList();
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+  function beginPinch() {
+    pinch = { span: pinchSpan(), radius: state.radius, centre: pinchCentre() };
+  }
+
+  function panBy(dx, dy) {
+    const delta = panOffset(state.theta, state.radius, dx, dy);
+    state.target.x += delta.x;
+    state.target.z += delta.z;
+  }
+
   const onDown = (e) => {
-    dragging = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 1 };
-    el.setPointerCapture?.(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { el.setPointerCapture?.(e.pointerId); } catch { /* pointer already gone */ }
+    if (pointers.size === 2) {
+      beginPinch();
+      orbitFrom = null;
+    } else if (pointers.size === 1) {
+      orbitFrom = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 1 };
+    }
     el.style.cursor = 'grabbing';
   };
+
   const onMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - dragging.x;
-    const dy = e.clientY - dragging.y;
-    dragging.x = e.clientX; dragging.y = e.clientY;
-    if (dragging.pan) {
-      const scale = state.radius * 0.0016;
-      state.target.x -= (dx * Math.cos(state.theta) + dy * 0) * scale;
-      state.target.z -= (dx * -Math.sin(state.theta) + dy * 0) * scale;
-      state.target.y = Math.max(0, state.target.y + dy * scale * 0.6);
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size >= 2) {
+      if (!pinch) beginPinch();
+      // Spreading the fingers moves the camera closer, pinching pulls back.
+      state.radius = pinchRadius(pinch.radius, pinch.span, pinchSpan());
+      // The midpoint drifting is a two-finger pan.
+      const centre = pinchCentre();
+      panBy(centre.x - pinch.centre.x, centre.y - pinch.centre.y);
+      pinch.centre = centre;
+      render();
+      return;
+    }
+
+    if (!orbitFrom) return;
+    const dx = e.clientX - orbitFrom.x;
+    const dy = e.clientY - orbitFrom.y;
+    orbitFrom.x = e.clientX; orbitFrom.y = e.clientY;
+    if (orbitFrom.pan) {
+      panBy(dx, dy);
     } else {
       state.theta -= dx * 0.007;
       state.phi = clamp(state.phi - dy * 0.006, 0.08, Math.PI / 2 - 0.03);
     }
     render();
   };
-  const onUp = (e) => { dragging = null; el.style.cursor = 'grab'; el.releasePointerCapture?.(e.pointerId); };
+
+  const onUp = (e) => {
+    pointers.delete(e.pointerId);
+    try { el.releasePointerCapture?.(e.pointerId); } catch { /* nothing captured */ }
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1) {
+      // Lifting one finger of a pinch continues as an orbit from where
+      // the remaining finger is, rather than snapping the view.
+      const [remaining] = pointerList();
+      orbitFrom = { x: remaining.x, y: remaining.y, pan: false };
+    } else if (pointers.size === 0) {
+      orbitFrom = null;
+      el.style.cursor = 'grab';
+    }
+  };
+
   const onWheel = (e) => {
     e.preventDefault();
-    state.radius = clamp(state.radius * (1 + Math.sign(e.deltaY) * 0.12), 8, 220);
+    state.radius = clamp(state.radius * (1 + Math.sign(e.deltaY) * 0.12), MIN_RADIUS, MAX_RADIUS);
     render();
   };
+
+  // Double tap or double click reframes the model, the way out of a
+  // gesture that went somewhere unhelpful.
+  const onDoubleClick = () => {
+    frameCamera(model, state);
+    render();
+  };
+
   el.addEventListener('pointerdown', onDown);
   el.addEventListener('pointermove', onMove);
   el.addEventListener('pointerup', onUp);
   el.addEventListener('pointercancel', onUp);
+  el.addEventListener('dblclick', onDoubleClick);
   el.addEventListener('wheel', onWheel, { passive: false });
 
   // Keyboard access: the viewer must not be mouse-only.
   el.tabIndex = 0;
   el.setAttribute('role', 'application');
-  el.setAttribute('aria-label', '3D model. Use the arrow keys to orbit and plus or minus to zoom.');
+  el.setAttribute('aria-label', '3D model. Use the arrow keys to orbit and plus or minus to zoom. On a touch screen, drag to orbit and pinch to zoom.');
   el.addEventListener('keydown', (e) => {
     const step = 0.12;
     if (e.key === 'ArrowLeft') state.theta -= step;
     else if (e.key === 'ArrowRight') state.theta += step;
     else if (e.key === 'ArrowUp') state.phi = clamp(state.phi - step * 0.6, 0.08, Math.PI / 2 - 0.03);
     else if (e.key === 'ArrowDown') state.phi = clamp(state.phi + step * 0.6, 0.08, Math.PI / 2 - 0.03);
-    else if (e.key === '+' || e.key === '=') state.radius = clamp(state.radius * 0.88, 8, 220);
-    else if (e.key === '-') state.radius = clamp(state.radius * 1.14, 8, 220);
+    else if (e.key === '+' || e.key === '=') state.radius = clamp(state.radius * 0.88, MIN_RADIUS, MAX_RADIUS);
+    else if (e.key === '-') state.radius = clamp(state.radius * 1.14, MIN_RADIUS, MAX_RADIUS);
     else return;
     e.preventDefault();
     render();
@@ -175,6 +272,8 @@ export async function mountViewer(container, model, options = {}) {
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+      el.removeEventListener('dblclick', onDoubleClick);
       el.removeEventListener('wheel', onWheel);
       clear(root);
       renderer.dispose();

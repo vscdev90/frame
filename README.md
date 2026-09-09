@@ -41,7 +41,7 @@ have. Nothing about the data model or the engine boundaries changes when a backe
 | §14 Budget | `engines/pipeline.js` | Splits total capital into construction, professional fees, levies and contingency. |
 | §15–16 Directions | `engines/directions.js` | Generates and ranks design directions with Design DNA, advantages, disadvantages and risks. |
 | §17 Massing | `engines/massing.js` | Generates a candidate grid, discards everything that breaks a site rule, scores the rest on four axes, keeps the strongest three. |
-| §18–19 Geometry & 3D | `engines/geometry.js`, `render/viewer3d.js`, `render/iso.js` | Deterministic geometry from structured intent; WebGL viewer with an isometric SVG fallback that draws the same model. |
+| §18–19 Geometry & 3D | `engines/geometry.js`, `render/viewer3d.js`, `render/iso.js` | Deterministic geometry from structured intent; WebGL viewer — orbit, pan, zoom, pinch-to-zoom on touch, keyboard control — with an isometric SVG fallback that draws the same model. |
 | §20 Floorplans | `engines/layout.js` | Real semantic spaces — polygon, area, facades, windows, adjacencies — packed orientation-aware, not drawn as pictures. |
 | §21 Construction | `data/construction.js` | Five systems with cost, speed, carbon, thermal, acoustic, fire, span and availability; ranked per design. |
 | §22 Envelope | `engines/geometry.js` | Glazing ratio → actual openings with size, sill, frame, glass, opening type and shading. |
@@ -93,6 +93,7 @@ It must be served over HTTP rather than opened as a `file://` URL, because the a
 
 ```bash
 node tests/smoke.mjs     # engine pipeline: directions, massing, cost, feasibility, what-if
+node tests/gestures.mjs  # pinch-zoom and pan maths for the 3D viewer, no WebGL needed
 node tests/browser.mjs   # end-to-end walk of the whole product loop in Chromium
 ```
 
@@ -107,7 +108,8 @@ deploys if they pass.
 The layout is built for a phone as well as a desktop. Below 1000px the two- and three-column
 layouts collapse; below 760px the design board's side navigation becomes a scrolling row of chips,
 the program list collapses behind a disclosure so the model stays above the fold, wide tables scroll
-inside themselves, and key/value pairs stack. The isometric renderer fits its own subject rather
+inside themselves, and key/value pairs stack. In the 3D viewer one finger orbits, two fingers pinch
+to zoom and pan together, and a double tap reframes the model. The isometric renderer fits its own subject rather
 than a fixed frame, so a drawing reads at thumbnail size as well as full width.
 
 ## Structure
