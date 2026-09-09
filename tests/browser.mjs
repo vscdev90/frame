@@ -177,11 +177,41 @@ await step('projects list and reload persistence', async () => {
   if (!text.includes('House Bloemendaal')) throw new Error('project did not persist');
 });
 
-await step('mobile viewport', async () => {
+await step('every page fits a 390px phone', async () => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${BASE}/index.html`, { waitUntil: 'networkidle' });
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  if (overflow > 2) throw new Error(`horizontal overflow of ${overflow}px on mobile`);
+  const id = await page.evaluate(() => JSON.parse(localStorage.getItem('frame.projects.v1'))[0].id);
+  const routes = [
+    '#/', '#/projects',
+    `#/project/${id}/project`, `#/project/${id}/location`, `#/project/${id}/program`,
+    `#/project/${id}/budget`, `#/project/${id}/design`,
+    `#/project/${id}/workspace`, `#/project/${id}/compare`, `#/project/${id}/brief`
+  ];
+  const offenders = [];
+  for (const route of routes) {
+    await page.goto(`${BASE}/index.html${route}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(500);
+    const overflow = await page.evaluate(() => {
+      const de = document.documentElement;
+      return de.scrollWidth - de.clientWidth;
+    });
+    if (overflow > 2) offenders.push(`${route} overflows by ${overflow}px`);
+  }
+  if (offenders.length) throw new Error(offenders.join('; '));
+});
+
+await step('workspace panels fit a phone too', async () => {
+  const id = await page.evaluate(() => JSON.parse(localStorage.getItem('frame.projects.v1'))[0].id);
+  await page.goto(`${BASE}/index.html#/project/${id}/workspace`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(600);
+  const offenders = [];
+  for (const p of ['massing', 'plans', 'facades', 'construction', 'cost', 'versions']) {
+    await page.locator(`[data-panel="${p}"]`).click();
+    await page.waitForTimeout(250);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (overflow > 2) offenders.push(`${p} overflows by ${overflow}px`);
+  }
+  if (offenders.length) throw new Error(offenders.join('; '));
+  await page.setViewportSize({ width: 1440, height: 950 });
 });
 
 await browser.close();

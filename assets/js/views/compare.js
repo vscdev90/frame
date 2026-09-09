@@ -41,7 +41,7 @@ export function compare(ctx) {
       </div>
     </div>
 
-    <div class="grid" style="grid-template-columns:repeat(${ev.directions.length},minmax(0,1fr));margin-bottom:2px">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-bottom:2px">
       ${ev.directions.map((d) => `
         <div class="card flush" style="border-bottom-left-radius:0;border-bottom-right-radius:0">
           <div style="background:var(--bg-sunk)">${renderIso(d.model, { width: 420, height: 240, showSite: false })}</div>

@@ -54,12 +54,14 @@ export function workspace(ctx) {
           ${PANELS.map((p) => `<button data-panel="${p.id}" aria-current="${p.id === 'overview'}">${p.icon}<span>${p.label}</span></button>`).join('')}
         </nav>
         <hr class="divider" style="margin:16px 0">
-        <div class="eyebrow">Program</div>
-        <div id="program-panel" class="small"></div>
+        <details id="program-details" class="disclose" style="border:0;padding:0">
+          <summary><span class="eyebrow" style="margin:0">Program</span></summary>
+          <div id="program-panel" class="small"></div>
+        </details>
       </div>
 
       <div>
-        <div class="viewport" id="viewport" style="height:min(56vh,520px)">
+        <div class="viewport vp-main" id="viewport">
           <span class="vp-label" id="vp-label"></span>
           <div class="toolbar" id="vp-tools"></div>
           <div id="vp-body" style="width:100%;height:100%"></div>
@@ -145,6 +147,13 @@ export function workspace(ctx) {
 
   function renderProgramPanel() {
     const spaces = ev.selected.floorplans.floors.flatMap((f) => f.spaces);
+    // Open beside the model on a wide screen; collapsed on a phone, where
+    // fourteen rows would push the model below the fold.
+    const details = node.querySelector('#program-details');
+    if (details && !details.dataset.touched) {
+      details.open = window.matchMedia('(min-width: 761px)').matches;
+    }
+    details?.addEventListener('toggle', () => { details.dataset.touched = '1'; }, { once: true });
     node.querySelector('#program-panel').innerHTML = `
       <table class="data">
         ${spaces.slice(0, 20).map((s) => `

@@ -76,7 +76,7 @@ export function renderFloorplan(floor, massing, model, opts = {}) {
 
   parts.push(`<g opacity=".6"><path d="M${W - 30},${28} l3.5,9 -3.5,-2.6 -3.5,2.6 z" fill="${COLORS.text}"/><text x="${W - 30}" y="${48}" font-size="9" text-anchor="middle" fill="${COLORS.text}">N</text></g>`);
 
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" role="img" aria-label="${floor.label} plan" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${floor.label} plan" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
 }
 
 function windowMark(space, win, P, s) {
@@ -137,7 +137,7 @@ export function renderElevation(model, massing, face = 'south', opts = {}) {
 
   parts.push(`<text x="${W / 2}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#8a8480" font-family="inherit">${face.charAt(0).toUpperCase() + face.slice(1)} elevation · ${width.toFixed(1)} × ${height.toFixed(1)} m</text>`);
 
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" role="img" aria-label="${face} elevation" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${face} elevation" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
 }
 
 function escapeText(v) {

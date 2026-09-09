@@ -86,6 +86,16 @@ function render() {
 
   // Restore the top of the page on navigation, but not on in-page updates.
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+
+  // On narrow screens the step bar scrolls sideways; keep the step the
+  // user is actually on in view rather than stranding it off-screen.
+  const activeStep = outlet.querySelector('.stepbar .step.active');
+  if (activeStep) {
+    const bar = activeStep.closest('.stepbar');
+    if (bar.scrollWidth > bar.clientWidth) {
+      bar.scrollLeft = activeStep.offsetLeft - (bar.clientWidth - activeStep.offsetWidth) / 2;
+    }
+  }
   document.title = route.projectId && getProject(route.projectId)
     ? `${getProject(route.projectId).name} · FRAME`
     : 'FRAME — Design within reality.';

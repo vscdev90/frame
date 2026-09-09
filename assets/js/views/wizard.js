@@ -140,7 +140,7 @@ function stepLocation(project, navigate) {
       <p class="muted">Enter the address and the plot dimensions.</p>
     </div>
 
-    <div class="grid" style="grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:20px">
+    <div class="split">
       <div>
         <label class="field">
           <span>Address</span>
@@ -257,7 +257,7 @@ function stepProgram(project, navigate) {
       <p class="muted">Tell us about your ideal home. You can always adjust this later.</p>
     </div>
 
-    <div class="grid" style="grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:20px">
+    <div class="split">
       <div>
         <div class="needs">
           <div class="need">
@@ -368,7 +368,7 @@ function stepBudget(project, navigate) {
       <p class="muted">Adjust the budget to see what is possible.</p>
     </div>
 
-    <div class="grid" style="grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:20px">
+    <div class="split">
       <div class="card">
         <div id="budget-value" style="font-size:2.6rem;letter-spacing:-.03em"></div>
         <input type="range" id="budget" min="150000" max="1500000" step="10000" value="${project.budget.total}" style="margin:22px 0 10px">
@@ -471,7 +471,7 @@ function stepDesign(project, navigate) {
       <p class="muted">Based on your location, program and budget, we have generated ${ev.directions.length} design directions.</p>
     </div>
 
-    <div class="tiles" style="grid-template-columns:repeat(${ev.directions.length},minmax(0,1fr));max-width:760px;margin:0 auto 24px" id="dir-tabs">
+    <div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));max-width:760px;margin:0 auto 24px" id="dir-tabs">
       ${ev.directions.map((d) => `
         <button class="tile" data-dir="${d.direction.id}" aria-pressed="${d.direction.id === activeId}" style="padding:14px 16px">
           <span class="tile-label" style="padding:0">${esc(d.direction.name)}<small>${esc(d.direction.subtitle)}</small></span>
@@ -499,7 +499,7 @@ function stepDesign(project, navigate) {
           <span class="vp-label">${esc(d.direction.name)} · ${d.massing.floors} storey${d.massing.floors > 1 ? 's' : ''} · ${area(d.massing.gfa)}</span>
           ${renderIso(d.model, { width: 900, height: 380, label: `${d.direction.name} massing` })}
         </div>
-        <div class="grid" style="grid-template-columns:minmax(0,1fr) 300px;gap:0;border-top:1px solid var(--line)">
+        <div class="split" style="gap:0;border-top:1px solid var(--line)">
           <div style="padding:22px">
             <h3 style="margin-bottom:8px">${esc(d.direction.name)}</h3>
             <p class="muted">${esc(d.direction.description)}</p>

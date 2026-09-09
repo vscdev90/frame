@@ -47,11 +47,29 @@ export function renderIso(model, opts = {}) {
   const H = opts.height || 460;
   const site = model.site;
 
-  // Fit the scene: the plot diagonal drives the scale.
-  const span = Math.max(site.width + site.depth, 24);
-  const s = (W * 0.66) / (span * COS30);
-  const ox = W / 2;
-  const oy = H * 0.30;
+  // Fit the scene to whatever is actually drawn: project the extremes at
+  // unit scale, then scale and centre on that bounding box. Without this a
+  // building set back from the street floats in a corner of the frame.
+  const w0 = model.footprint.width;
+  const d0 = model.footprint.depth;
+  const o0 = model.origin;
+  const extremes = [];
+  for (const [cx, cz] of [[o0.x, o0.z], [o0.x + w0, o0.z], [o0.x + w0, o0.z + d0], [o0.x, o0.z + d0]]) {
+    extremes.push([cx, 0, cz], [cx, model.height, cz]);
+  }
+  if (opts.showSite !== false) {
+    for (const [cx, cz] of site.polygon) extremes.push([cx, 0, cz]);
+  }
+  const unit = extremes.map(([x, y, z]) => project(x, y, z, 1, 0, 0));
+  const minX = Math.min(...unit.map((p) => p[0]));
+  const maxX = Math.max(...unit.map((p) => p[0]));
+  const minY = Math.min(...unit.map((p) => p[1]));
+  const maxY = Math.max(...unit.map((p) => p[1]));
+
+  const pad = opts.showSite === false ? 14 : 22;
+  const s = Math.min((W - pad * 2) / Math.max(0.001, maxX - minX), (H - pad * 2) / Math.max(0.001, maxY - minY));
+  const ox = W / 2 - ((minX + maxX) / 2) * s;
+  const oy = H / 2 - ((minY + maxY) / 2) * s;
 
   const P = (x, y, z) => project(x, y, z, s, ox, oy);
   const parts = [];
@@ -156,7 +174,7 @@ export function renderIso(model, opts = {}) {
     parts.push(`<g opacity=".55"><circle cx="${n[0].toFixed(1)}" cy="${n[1].toFixed(1)}" r="11" fill="#fff" stroke="${PALETTE.groundEdge}"/><path d="M${n[0].toFixed(1)},${(n[1] - 7).toFixed(1)} l3.5,9 -3.5,-2.6 -3.5,2.6 z" fill="${PALETTE.ink}"/><text x="${n[0].toFixed(1)}" y="${(n[1] + 20).toFixed(1)}" font-size="8" text-anchor="middle" fill="${PALETTE.ink}" font-family="inherit">N</text></g>`);
   }
 
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" role="img" aria-label="${opts.label || 'Isometric view of the design'}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${opts.label || 'Isometric view of the design'}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
 }
 
 /** Flat 2D site plan: plot, buildable envelope, footprint, north. */
@@ -194,5 +212,5 @@ export function renderSitePlan(model, envelope, opts = {}) {
   parts.push(`<text x="${W - 16}" y="${H - 14}" text-anchor="end" font-size="10" fill="#57534e">Plot ${Math.round(site.width * site.depth)} m² · footprint ${Math.round(model.footprint.width * model.footprint.depth)} m²</text>`);
   parts.push(`<g opacity=".6"><path d="M${pad},${pad + 14} l3.5,9 -3.5,-2.6 -3.5,2.6 z" fill="#14110f"/><text x="${pad}" y="${pad + 34}" font-size="9" text-anchor="middle" fill="#14110f">N</text></g>`);
 
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" role="img" aria-label="Site plan" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Site plan" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="font-family:inherit">${parts.join('')}</svg>`;
 }

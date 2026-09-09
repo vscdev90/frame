@@ -98,7 +98,17 @@ node tests/browser.mjs   # end-to-end walk of the whole product loop in Chromium
 
 The browser test drives the real UI — wizard, workspace, every panel, the what-if engine, the
 assistant, versioning, comparison and the brief — and fails on any console error, page error or
-unexpected failed request. Both run in CI on every push, and the site only deploys if they pass.
+unexpected failed request. It also loads every route, and every workspace panel, at 390 × 844 and
+fails if anything overflows horizontally. Both suites run in CI on every push, and the site only
+deploys if they pass.
+
+## Responsive behaviour
+
+The layout is built for a phone as well as a desktop. Below 1000px the two- and three-column
+layouts collapse; below 760px the design board's side navigation becomes a scrolling row of chips,
+the program list collapses behind a disclosure so the model stays above the fold, wide tables scroll
+inside themselves, and key/value pairs stack. The isometric renderer fits its own subject rather
+than a fixed frame, so a drawing reads at thumbnail size as well as full width.
 
 ## Structure
 
