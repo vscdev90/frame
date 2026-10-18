@@ -50,7 +50,7 @@ button.ghost.lang { font-size: .95rem; font-weight: 900; width: 44px; height: 40
   display: flex; flex-direction: column; align-items: center; gap: 14px; pointer-events: none;
 }
 #ignite button { pointer-events: auto; }
-.ignite-hint { font-weight: 900; font-size: 1.4rem; text-shadow: 0 2px 8px #000; text-align: center; padding: 0 16px; }
+.ignite-hint { white-space: pre-line; font-weight: 900; font-size: 1.4rem; text-shadow: 0 2px 8px #000; text-align: center; padding: 0 16px; }
 
 /* panels */
 .panel {
@@ -140,3 +140,44 @@ button.ghost.on { background: rgba(255,210,63,.35); }
 #hud-zone.hint { font-size: 1.1rem; }
 #btn-turbo { left: 0; right: 0; margin: 0 auto; width: fit-content; }
 .sub { margin: 8px 0 4px; font-size: .78rem; font-weight: 800; color: #ffd23f; }
+
+/* HUD extras */
+.hud-row.small { margin-top: 6px; font-weight: 800; font-size: 1rem; text-shadow: 0 2px 6px #000; }
+#hud-combo {
+  margin-top: 8px; text-align: center; font-weight: 900; font-size: 1.3rem; color: #ffd23f;
+  text-shadow: 0 2px 0 #b34d00, 0 0 12px rgba(255,140,0,.7); min-height: 1.6em;
+}
+
+/* missions */
+.mission { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.07); border-radius: 14px; padding: 8px 10px; margin-bottom: 6px; }
+.mission .mt { flex: 1; min-width: 0; font-size: .9rem; }
+.mission .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.15); margin-top: 5px; overflow: hidden; }
+.mission .bar i { display: block; height: 100%; background: #b7ff8a; }
+.mission button.buy { flex: none; padding: 7px 10px; font-size: .85rem; }
+.mission.claimed { opacity: .55; }
+.universe { font-size: .85rem; color: #c77dff; font-weight: 800; margin: -6px 0 6px; }
+
+/* prestige */
+.prestige { margin: 12px 0; padding: 12px; border-radius: 16px; background: linear-gradient(135deg, rgba(119,0,255,.35), rgba(0,180,255,.25)); border: 2px solid rgba(199,125,255,.6); }
+.p-title { font-weight: 900; font-size: 1.15rem; }
+.p-desc { font-size: .82rem; opacity: .85; margin: 4px 0 8px; }
+
+/* result extras */
+.res-badges { text-align: center; font-weight: 800; color: #80ffdb; min-height: 1.2em; max-width: 380px; margin: 0 auto; }
+.res-buttons { display: flex; gap: 10px; justify-content: center; align-items: center; margin-top: 14px; }
+.res-buttons .big { margin-top: 0 !important; }
+button.ghost.wide { width: auto; padding: 0 14px; font-size: 1rem; font-weight: 900; }
+
+/* collection */
+.title.small { font-size: 1.5rem; }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+.badge { background: rgba(255,255,255,.07); border-radius: 14px; padding: 8px; text-align: center; }
+.badge .bi { font-size: 1.8rem; }
+.badge .bn { font-weight: 800; font-size: .8rem; }
+.badge .bd { font-size: .7rem; opacity: .7; }
+.badge.locked { opacity: .35; filter: grayscale(1); }
+.starmap { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.planet { flex: none; width: 72px; text-align: center; background: rgba(255,255,255,.07); border-radius: 14px; padding: 6px 4px; }
+.planet .pi { font-size: 1.8rem; }
+.planet .pc { font-size: .75rem; opacity: .8; }
+.planet.locked .pi { filter: brightness(0); opacity: .5; }

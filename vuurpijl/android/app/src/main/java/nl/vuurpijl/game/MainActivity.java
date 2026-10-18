@@ -1,10 +1,13 @@
 package nl.vuurpijl.game;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.util.Base64;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -16,7 +19,11 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
+
+import java.io.File;
+import java.io.FileOutputStream;
 
 /** Full-screen WebView that runs the game from the APK's assets. */
 public class MainActivity extends Activity {
@@ -65,6 +72,28 @@ public class MainActivity extends Activity {
             Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
             if (v == null || !v.hasVibrator()) return;
             v.vibrate(VibrationEffect.createOneShot(Math.max(1, Math.min(ms, 500)), VibrationEffect.DEFAULT_AMPLITUDE));
+        }
+
+        /** Shares the score picture (base64 PNG) and a line of text with any app. */
+        @JavascriptInterface
+        public void shareImage(String base64Png, String text) {
+            try {
+                File dir = new File(getCacheDir(), "share");
+                if (!dir.exists() && !dir.mkdirs()) return;
+                File file = new File(dir, "rocket.png");
+                try (FileOutputStream out = new FileOutputStream(file)) {
+                    out.write(Base64.decode(base64Png, Base64.DEFAULT));
+                }
+                Uri uri = FileProvider.getUriForFile(MainActivity.this, "nl.vuurpijl.game.files", file);
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("image/png");
+                send.putExtra(Intent.EXTRA_STREAM, uri);
+                send.putExtra(Intent.EXTRA_TEXT, text);
+                send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                runOnUiThread(() -> startActivity(Intent.createChooser(send, null)));
+            } catch (Exception e) {
+                // nothing to share then; the game carries on
+            }
         }
     }
 

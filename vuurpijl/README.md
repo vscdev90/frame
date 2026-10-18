@@ -21,6 +21,17 @@ Onderweg vlieg je door onweer in de wolken, noorderlicht in de stratosfeer en la
 
 Echte merknamen (NASA, F-16, F-35, Mentos, ACME, …) zitten er bewust niet in.
 
+**Elke dag iets te doen:**
+- 📅 Drie dagelijkse missies (plus een bonuskist als je ze alle drie haalt).
+- 🔥 Combo's: munten achter elkaar pakken zonder te botsen geeft tot ×5 munten.
+- 🛡️ Schild, 🧲 magneet en ⏳ slow-mo als power-ups, 💰 gouden wolken met een muntenregen.
+- ⚠️ Bazen: een reuzenmeeuw (450 m), een ruimtewalvis (16.500 m) en een moederschip (23.500 m). Ontwijken levert veel op.
+- 🌧️ Weer per vlucht: regen, wind, sneeuw in de winter en vuurwerk overal op oudjaar (munten ×2).
+- 🏆 Verzameling: 18 prestaties, skins (zonnebril, feesthoed, kerstmuts, propellerpet, regenboogspoor, kroon) en een sterrenkaart.
+- 👻 Een spook van je recordvlucht vliegt mee.
+- 📤 Deel een plaatje van je score.
+- 🌌 Na het zwarte gat: begin een nieuw heelal en verdien voortaan meer munten (prestige).
+
 **Sturen:** houd links of rechts van het scherm vast, of zet 📱 aan om te sturen door je telefoon te kantelen.
 Tik tijdens de knal om meteen naar de uitslag te gaan.
 
@@ -38,9 +49,11 @@ Nieuwe versies installeren over de oude heen; je voortgang blijft bewaard.
 | --- | --- |
 | `www/` | Het spel zelf (HTML5 canvas, geen libraries). Werkt ook gewoon in een browser. |
 | `www/logic.js` | Regels, upgrades, evoluties en de natuurkunde — los van de DOM. |
+| `www/meta.js` | Missies, prestaties, skins, weer, bazen en prestige — los van de DOM. |
 | `www/i18n.js` | Alle teksten (het spel gebruikt alleen de Engelse). |
 | `android/` | Minimale Android-app: een schermvullende WebView die `www/` uit de APK laadt. |
 | `tests/balance.mjs` | Simuleert een speler en checkt dat de maan haalbaar is in een redelijk aantal vluchten. |
+| `tests/meta.mjs` | Test missies, prestaties, weer en prestige. |
 | `tests/play.mjs` | Speelt het spel in een echte browser (aansteken, vliegen, upgraden). |
 
 Lokaal spelen: `cd vuurpijl/www && python3 -m http.server` en open http://localhost:8000.

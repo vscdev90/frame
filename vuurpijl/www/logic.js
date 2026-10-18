@@ -108,10 +108,17 @@
   function freshSave() {
     const lv = {};
     for (const u of UPGRADES) lv[u.id] = 0;
-    return { coins: 0, record: 0, evo: 0, lv, zones: 0, flights: 0, moon: 0, ends: 0, sound: true, site: 0, type: 0, types: [0], tilt: false };
+    return {
+      coins: 0, record: 0, evo: 0, lv, zones: 0, flights: 0, moon: 0, ends: 0, sound: true, site: 0, type: 0, types: [0], tilt: false,
+      prestige: 0, best: 0, achievements: [], skins: ['none'], skin: 'none', visits: {}, counters: { perfects: 0, bossDodges: 0 },
+      daily: null, ghost: null,
+    };
   }
 
-  function stats(save) {
+  // wx is this flight's weather: { drag, coin, wind } (all optional).
+  function stats(save, wx) {
+    wx = wx || {};
+    const pm = 1 + 0.5 * (save.prestige || 0); // every new universe pays more
     const L = save.lv;
     const evo = EVOS[save.evo];
     const type = TYPES[save.type || 0], site = SITES[save.site || 0];
@@ -125,8 +132,9 @@
       knal: (1 + 0.2 * L.knal) * type.bang,          // height-bonus multiplier
       magnet: (L.magneet ? 30 + 16 * L.magneet : 0) + type.magnet, // screen px
       turbo: L.turbo + (type.extraTurbo || 0),
-      coin: site.mult * type.coin,                   // coin value multiplier
-      income: site.mult,                             // height-bonus multiplier from the site
+      coin: site.mult * type.coin * pm * (wx.coin || 1), // coin value multiplier
+      income: site.mult * pm * (wx.coin || 1),       // height-bonus multiplier
+      wxDrag: wx.drag || 1, wind: wx.wind || 0,      // weather, below 2,000 m
       stages: type.stages,
       lowg: type.lowg || 1,
       puffs: !!type.puffs, spin: !!type.spin, drift: !!type.drift,
@@ -182,7 +190,8 @@
     r.ang += r.spin * dt;
     r.spin *= Math.exp(-(2.5 + st.stab * 0.7) * dt);
 
-    let ax = 0, ay = -G * gravityAt(r.y) * st.lowg;
+    const low = r.y < 2000;
+    let ax = low ? st.wind || 0 : 0, ay = -G * gravityAt(r.y) * st.lowg;
     if (burning) {
       let T = st.thrust * r.boost * (r.turboT > 0 ? 2.2 : 1);
       if (st.puffs) T *= Math.sin(r.t * 11) > -0.3 ? 1.25 : 0.25;
@@ -191,7 +200,7 @@
       if (r.fuel > 0) r.fuel = Math.max(0, r.fuel - dt);
       if (r.turboT > 0) r.turboT = Math.max(0, r.turboT - dt);
     }
-    const sp = Math.hypot(r.vx, r.vy), drag = st.drag * airAt(r.y);
+    const sp = Math.hypot(r.vx, r.vy), drag = st.drag * airAt(r.y) * (low ? st.wxDrag || 1 : 1);
     ax -= drag * sp * r.vx;
     ay -= drag * sp * r.vy;
     r.vx += ax * dt;

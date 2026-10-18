@@ -17,6 +17,11 @@
       <div class="pill" id="hud-coins">🪙 0</div>
     </div>
     <div class="fuelbar"><div id="hud-fuel"></div></div>
+    <div class="hud-row small">
+      <div id="hud-wx"></div>
+      <div id="hud-power"></div>
+    </div>
+    <div id="hud-combo"></div>
     <div id="hud-zone"></div>
     <button id="btn-turbo" class="hidden">⚡ TURBO <span id="turbo-n"></span></button>
   </div>
@@ -32,12 +37,23 @@
     <header class="shop-top">
       <div class="title"><span data-i18n="title">ROCKET</span><span>!</span></div>
       <div class="top-right">
+        <button id="btn-collection" class="ghost lang" aria-label="Collection">🏆</button>
         <button id="btn-tilt" class="ghost lang" aria-label="Tilt">📱</button>
         <div class="wallet"><span id="shop-coins">0</span> 🪙</div>
       </div>
     </header>
     <div class="record"><span data-i18n="record">Record</span>: <b id="shop-record">0 m</b> · <span data-i18n="flights">Flights</span>: <b id="shop-flights">0</b></div>
     <div class="progress"><div id="moon-progress"></div><span class="moon-ico" id="goal-ico">🌕</span></div>
+    <div class="universe" id="shop-universe"></div>
+
+    <h3 class="sec" data-i18n="missionsHead">Daily missions</h3>
+    <section id="missions"></section>
+
+    <section id="prestige" class="prestige hidden">
+      <div class="p-title" data-i18n="prestigeHead">🌌 New universe</div>
+      <div class="p-desc" data-i18n="prestigeDesc"></div>
+      <button id="btn-prestige" class="buy"></button>
+    </section>
 
     <section class="evo">
       <canvas id="evo-preview" width="120" height="160"></canvas>
@@ -76,14 +92,36 @@
     <div class="res-line"><span data-i18n="resCoins">Coins collected</span><b id="res-coins"></b></div>
     <div class="res-line"><span data-i18n="resBonus">Bang bonus</span><b id="res-bonus"></b></div>
     <div class="res-line" id="res-zone-line"><span data-i18n="resZone">New zone</span><b id="res-zone"></b></div>
+    <div class="res-line" id="res-combo-line"><span data-i18n="resCombo">Best combo</span><b id="res-combo"></b></div>
+    <div class="res-line" id="res-ach-line"><span data-i18n="resAch">Achievements</span><b id="res-ach"></b></div>
     <div class="res-total"><span data-i18n="resTotal">Total</span><b id="res-total"></b></div>
+    <div class="res-badges" id="res-badges"></div>
     <div class="res-record hidden" id="res-record" data-i18n="newRecord">🏆 NEW RECORD!</div>
-    <button id="btn-continue" class="big" data-i18n="toShed">🛠️ TO THE SHED</button>
+    <div class="res-buttons">
+      <button id="btn-share" class="ghost wide" data-i18n="share">📤 SHARE</button>
+      <button id="btn-continue" class="big" data-i18n="toShed">🛠️ TO THE SHED</button>
+    </div>
+  </div>
+
+  <!-- collection: skins, achievements, star map -->
+  <div id="collection" class="panel hidden">
+    <header class="shop-top">
+      <div class="title small" data-i18n="collection">Collection</div>
+      <button id="btn-close-collection" class="ghost lang" aria-label="Close">✕</button>
+    </header>
+    <div class="record" id="col-stats"></div>
+    <h3 class="sec" data-i18n="skinsHead">Skins</h3>
+    <section class="chips" id="skins"></section>
+    <h3 class="sec" data-i18n="mapHead">Star map</h3>
+    <section class="starmap" id="starmap"></section>
+    <h3 class="sec" data-i18n="achHead">Achievements</h3>
+    <section class="badges" id="badges"></section>
   </div>
 
   <div id="toast"></div>
 
   <script src="logic.js"></script>
+  <script src="meta.js"></script>
   <script src="i18n.js"></script>
   <script src="game.js"></script>
 </body>

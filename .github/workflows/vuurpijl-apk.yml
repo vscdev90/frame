@@ -26,6 +26,9 @@ jobs:
       - name: Balance check (the moon is reachable, but not too fast)
         run: node vuurpijl/tests/balance.mjs
 
+      - name: Missions, achievements, weather and prestige
+        run: node vuurpijl/tests/meta.mjs
+
       - name: Play the game in a browser
         run: |
           npm install --no-save playwright@1.56.1
