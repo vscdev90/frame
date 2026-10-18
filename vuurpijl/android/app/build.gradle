@@ -10,8 +10,8 @@ android {
         applicationId 'nl.vuurpijl.game'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
-        versionName "1.0.${System.getenv('GITHUB_RUN_NUMBER') ?: '0'}"
+        versionCode = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+        versionName = "1.0.${System.getenv('GITHUB_RUN_NUMBER') ?: '0'}"
     }
 
     // The game itself is the web build next door; one source for browser and APK.
