@@ -3,6 +3,8 @@
   'use strict';
 
   const L = window.VPLogic;
+  const I = window.VPI18n;
+  const T = (k) => I.t(k);
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -13,7 +15,7 @@
     n = Math.floor(n);
     if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M';
     if (n >= 1e4) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + 'k';
-    return n.toLocaleString('nl-NL');
+    return n.toLocaleString(T('locale'));
   }
 
   // ---------- save ----------
@@ -53,6 +55,19 @@
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     } catch (e) { A.ctx = null; }
   }
+  // Language: what the player chose, otherwise the phone's language.
+  function setLang(lang) {
+    I.set(lang);
+    save.lang = I.lang; store();
+    document.documentElement.lang = I.lang;
+    document.title = I.lang === 'en' ? 'Rocket!' : 'Vuurpijl!';
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = T(el.dataset.i18n); });
+    $('btn-lang').textContent = I.lang === 'en' ? 'NL' : 'EN';
+    $('btn-lang').setAttribute('aria-label', T('lang'));
+    $('btn-sound').setAttribute('aria-label', T('sound'));
+    $('btn-reset').setAttribute('aria-label', T('reset'));
+  }
+
   function setSound(on) {
     save.sound = on; store();
     if (A.master) A.master.gain.value = on ? 0.6 : 0;
@@ -264,19 +279,19 @@
       o.dead = true;
       rocket.fuel += 0.7;
       rocket.fuelMax = Math.max(rocket.fuelMax, rocket.fuel);
-      floatText(o.x, o.y, '+KRUIT', '#ff8c1a');
+      floatText(o.x, o.y, T('plusFuel'), '#ff8c1a');
       sfx.pickup(); vib(20);
     } else if (o.type === 'star') {
       o.dead = true;
       rocket.turboLeft++;
-      floatText(o.x, o.y, '+TURBO', '#80d8ff');
+      floatText(o.x, o.y, T('plusTurbo'), '#80d8ff');
       sfx.pickup(); vib(20);
     } else if (!o.hit) {
       o.hit = true; o.dead = o.type !== 'balloon' && o.type !== 'sat' && o.type !== 'plane';
       rocket.vx *= 0.5; rocket.vy *= 0.62;
       rocket.spin += (Math.random() < 0.5 ? -1 : 1) * Math.max(1.5, 6 - st.stab * 0.45);
       shake = 12; sfx.bump(); vib(60);
-      floatText(rocket.x, rocket.y, ['AU!', 'BONK!', 'OEPS!', 'KRAK!'][Math.floor(Math.random() * 4)], '#ff4d6d');
+      floatText(rocket.x, rocket.y, T('ouch')[Math.floor(Math.random() * 4)], '#ff4d6d');
       const col = { bird: '#e0e0e0', meteor: '#a0703c', plane: '#cfd8dc', balloon: '#ff4d6d', sat: '#b0bec5' }[o.type];
       for (let i = 0; i < 14; i++) part(o.x, o.y, { vx: rand(-120, 120), vy: rand(-120, 60), g: 120, life: rand(0.5, 1), size: rand(2, 4), color: col, glow: false });
     }
@@ -317,9 +332,7 @@
     resetCamera();
     show('shop', false); show('result', false);
     show('ignite', true); show('btn-light', true);
-    $('ignite-hint').textContent = save.flights < 2
-      ? 'Steek de lont aan en tik als de naald in het GROENE vak staat!'
-      : 'Steek de lont aan!';
+    $('ignite-hint').textContent = T(save.flights < 2 ? 'hintFirst' : 'hint');
     ign = null;
   }
 
@@ -328,7 +341,7 @@
     if (state !== 'ignite' || ign) return;
     ign = { t: 0, dur: 2.6, speed: rand(3.6, 4.6), center: rand(0.62, 0.86), done: false };
     show('btn-light', false);
-    $('ignite-hint').textContent = 'Tik als de naald in het groene vak staat!';
+    $('ignite-hint').textContent = T('hintTap');
     loopStart('fuse', 'highpass', 3500, 0.7);
     loopSet('fuse', 0.25);
     vib(15);
@@ -339,9 +352,9 @@
   function igniteTap() {
     if (!ign || ign.done || ign.t < 0.2) return;
     const d = Math.abs(needle() - ign.center);
-    if (d < st.perfect) launch(1.3, 'PERFECT! 🔥');
-    else if (d < st.perfect * 2.6) launch(1.12, 'GOED!');
-    else launch(1.0, 'Mwah…');
+    if (d < st.perfect) launch(1.3, T('perfect'));
+    else if (d < st.perfect * 2.6) launch(1.12, T('good'));
+    else launch(1.0, T('meh'));
   }
 
   function launch(boost, label) {
@@ -386,7 +399,7 @@
     if (ground) {
       sfx.plof(); vib(80);
       for (let i = 0; i < 30; i++) part(rocket.x, rocket.y, { vx: rand(-100, 100), vy: rand(-140, 0), g: 200, life: rand(0.5, 1), size: rand(3, 6), color: '#ff8c1a' });
-      toast('PLOF!', 900);
+      toast(T('plof'), 900);
     } else {
       sfx.boom(big); vib(140); shake = 16;
       firework(rocket.x, rocket.y, 1 + big * 0.5, PALETTES[save.evo % PALETTES.length]);
@@ -406,7 +419,7 @@
     while (save.zones < zi) {
       save.zones++;
       zoneBonus += L.ZONES[save.zones].bonus;
-      zoneName = L.ZONES[save.zones].name;
+      zoneName = I.zone(save.zones, L);
     }
     const total = rocket.coins + bonus + zoneBonus;
     const newRecord = maxH > save.record + 0.5 && save.flights > 0;
@@ -416,7 +429,7 @@
     if (wonMoon) save.moon++;
     store();
 
-    $('res-title').textContent = wonMoon ? 'DE MAAN! 🌕' : (maxH < 5 ? 'PLOF…' : ['KNAL!', 'BOEM!', 'PATS!', 'WOEHOE!'][Math.floor(Math.random() * 4)]);
+    $('res-title').textContent = wonMoon ? T('moon') : (maxH < 5 ? T('plofTitle') : T('booms')[Math.floor(Math.random() * 4)]);
     $('res-height').textContent = fmt(maxH) + ' m';
     $('res-coins').textContent = fmt(rocket.coins) + ' 🪙';
     $('res-bonus').textContent = fmt(bonus) + ' 🪙';
@@ -436,18 +449,18 @@
     $('shop-flights').textContent = save.flights;
     $('moon-progress').style.width = clamp((save.record / L.MOON_Y) * 100, 0, 100) + '%';
     const evo = EVO(), next = L.EVOS[save.evo + 1];
-    $('evo-name').textContent = evo.name;
-    $('evo-mult').textContent = 'Kracht ×' + evo.mult.toFixed(2);
+    $('evo-name').textContent = I.evo(save.evo, L);
+    $('evo-mult').textContent = T('power') + ' ×' + evo.mult.toFixed(2);
     const be = $('btn-evolve');
     if (!next) {
-      be.textContent = 'MAXIMAAL'; be.disabled = true; be.className = 'buy max';
-      $('evo-need').textContent = save.moon ? 'Je bent op de maan geweest ' + save.moon + '×!' : 'Op naar de maan!';
+      be.textContent = T('maxed'); be.disabled = true; be.className = 'buy max';
+      $('evo-need').textContent = save.moon ? T('beenMoon')(save.moon) : T('toMoon');
     } else {
       be.className = 'buy';
-      be.textContent = '⬆ ' + next.name + ' · ' + fmt(next.cost) + ' 🪙';
+      be.textContent = '⬆ ' + I.evo(save.evo + 1, L) + ' · ' + fmt(next.cost) + ' 🪙';
       const reached = save.record >= next.need;
       be.disabled = !reached || save.coins < next.cost;
-      $('evo-need').textContent = reached ? 'Kracht ×' + next.mult.toFixed(2) : 'Haal eerst ' + fmt(next.need) + ' m hoogte';
+      $('evo-need').textContent = reached ? T('power') + ' ×' + next.mult.toFixed(2) : T('reachFirst')(fmt(next.need));
     }
     drawPreview();
 
@@ -465,8 +478,8 @@
         return '<i class="' + (filled ? 'on' : '') + '"></i>';
       }).join('');
       el.innerHTML =
-        '<div class="top"><span class="ico">' + u.icon + '</span><span>' + u.name + ' <small>' + lv + '/' + u.max + '</small></span></div>' +
-        '<div class="desc">' + u.desc + '</div><div class="lvl">' + bars + '</div>';
+        '<div class="top"><span class="ico">' + u.icon + '</span><span>' + I.upgName(u) + ' <small>' + lv + '/' + u.max + '</small></span></div>' +
+        '<div class="desc">' + I.upgDesc(u) + '</div><div class="lvl">' + bars + '</div>';
       const b = document.createElement('button');
       b.className = 'buy' + (max ? ' max' : '');
       b.textContent = max ? 'MAX' : fmt(c) + ' 🪙';
@@ -496,7 +509,7 @@
     save.evo++;
     store();
     sfx.perfect(); vib(80);
-    toast('EVOLUTIE! ' + next.name, 1400);
+    toast(T('evolved') + I.evo(save.evo, L), 1400);
     renderShop();
   }
 
@@ -845,8 +858,7 @@
     const zi = L.zoneIndex(rocket.y);
     if (zi > flightZone) {
       flightZone = zi;
-      const z = L.ZONES[zi];
-      $('hud-zone').textContent = (zi > save.zones ? '✨ NIEUW: ' : '') + z.name;
+      $('hud-zone').textContent = (zi > save.zones ? T('newZone') : '') + I.zone(zi, L);
       $('hud-zone').classList.add('show');
       hudZoneT = 2.2;
       if (zi > save.zones) { sfx.perfect(); vib(30); }
@@ -861,7 +873,7 @@
 
     if (state === 'ignite' && ign && !ign.done) {
       ign.t += dt;
-      if (ign.t >= ign.dur) launch(0.9, 'Te laat…');
+      if (ign.t >= ign.dur) launch(0.9, T('late'));
     }
 
     if (state === 'flight') {
@@ -888,7 +900,7 @@
       if (rocket.y >= L.MOON_Y && !wonMoon) {
         wonMoon = true;
         rocket.fuel = 0; rocket.turboT = 0; rocket.turboLeft = 0;
-        toast('🌕 DE MAAN! 🌕', 2000);
+        toast(T('moonToast'), 2000);
         explode(false);
       } else if (L.finished(rocket)) {
         explode(rocket.y <= 0.5);
@@ -978,9 +990,10 @@
   $('btn-turbo').addEventListener('pointerdown', (e) => { e.stopPropagation(); useTurbo(); });
   $('btn-continue').addEventListener('click', goShop);
   $('btn-evolve').addEventListener('click', evolve);
+  $('btn-lang').addEventListener('click', () => { setLang(I.lang === 'en' ? 'nl' : 'en'); renderShop(); });
   $('btn-sound').addEventListener('click', () => { audioInit(); setSound(!save.sound); });
   $('btn-reset').addEventListener('click', () => {
-    if (window.confirm('Alle voortgang wissen en opnieuw beginnen?')) { save = L.freshSave(); store(); goShop(); }
+    if (window.confirm(T('resetAsk'))) { save = Object.assign(L.freshSave(), { lang: save.lang, sound: save.sound }); store(); goShop(); }
   });
 
   // Android back button: the wrapper asks us first.
@@ -998,6 +1011,7 @@
   // test hook
   window.__vp = { get state() { return state; }, get rocket() { return rocket; }, get save() { return save; } };
 
+  setLang(save.lang || I.pickDefault());
   setSound(save.sound);
   goShop();
   requestAnimationFrame(frame);

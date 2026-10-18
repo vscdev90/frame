@@ -24,22 +24,25 @@
   <!-- lighting the fuse -->
   <div id="ignite" class="hidden">
     <div class="ignite-hint" id="ignite-hint">Steek de lont aan!</div>
-    <button id="btn-light" class="big">🔥 AANSTEKEN</button>
+    <button id="btn-light" class="big" data-i18n="lightBtn">🔥 AANSTEKEN</button>
   </div>
 
   <!-- workshop / upgrade shop -->
   <div id="shop" class="panel hidden">
     <header class="shop-top">
-      <div class="title">VUURPIJL<span>!</span></div>
-      <div class="wallet"><span id="shop-coins">0</span> 🪙</div>
+      <div class="title"><span data-i18n="title">VUURPIJL</span><span>!</span></div>
+      <div class="top-right">
+        <button id="btn-lang" class="ghost lang" aria-label="Taal">EN</button>
+        <div class="wallet"><span id="shop-coins">0</span> 🪙</div>
+      </div>
     </header>
-    <div class="record">Record: <b id="shop-record">0 m</b> · Vluchten: <b id="shop-flights">0</b></div>
+    <div class="record"><span data-i18n="record">Record</span>: <b id="shop-record">0 m</b> · <span data-i18n="flights">Vluchten</span>: <b id="shop-flights">0</b></div>
     <div class="progress"><div id="moon-progress"></div><span class="moon-ico">🌕</span></div>
 
     <section class="evo">
       <canvas id="evo-preview" width="120" height="160"></canvas>
       <div class="evo-info">
-        <div class="evo-label">Jouw pijl</div>
+        <div class="evo-label" data-i18n="yourRocket">Jouw pijl</div>
         <div class="evo-name" id="evo-name"></div>
         <div class="evo-mult" id="evo-mult"></div>
         <button id="btn-evolve" class="buy"></button>
@@ -51,7 +54,7 @@
 
     <footer class="shop-bottom">
       <button id="btn-sound" class="ghost" aria-label="Geluid">🔊</button>
-      <button id="btn-launch" class="big">🚀 LANCEREN</button>
+      <button id="btn-launch" class="big" data-i18n="launchBtn">🚀 LANCEREN</button>
       <button id="btn-reset" class="ghost" aria-label="Opnieuw beginnen">↺</button>
     </footer>
   </div>
@@ -59,18 +62,19 @@
   <!-- flight result -->
   <div id="result" class="panel card hidden">
     <div class="result-title" id="res-title">KNAL!</div>
-    <div class="res-line"><span>Hoogte</span><b id="res-height"></b></div>
-    <div class="res-line"><span>Munten gepakt</span><b id="res-coins"></b></div>
-    <div class="res-line"><span>Knalbonus</span><b id="res-bonus"></b></div>
-    <div class="res-line" id="res-zone-line"><span>Nieuwe zone</span><b id="res-zone"></b></div>
-    <div class="res-total"><span>Totaal</span><b id="res-total"></b></div>
-    <div class="res-record hidden" id="res-record">🏆 NIEUW RECORD!</div>
-    <button id="btn-continue" class="big">🛠️ NAAR DE SCHUUR</button>
+    <div class="res-line"><span data-i18n="resHeight">Hoogte</span><b id="res-height"></b></div>
+    <div class="res-line"><span data-i18n="resCoins">Munten gepakt</span><b id="res-coins"></b></div>
+    <div class="res-line"><span data-i18n="resBonus">Knalbonus</span><b id="res-bonus"></b></div>
+    <div class="res-line" id="res-zone-line"><span data-i18n="resZone">Nieuwe zone</span><b id="res-zone"></b></div>
+    <div class="res-total"><span data-i18n="resTotal">Totaal</span><b id="res-total"></b></div>
+    <div class="res-record hidden" id="res-record" data-i18n="newRecord">🏆 NIEUW RECORD!</div>
+    <button id="btn-continue" class="big" data-i18n="toShed">🛠️ NAAR DE SCHUUR</button>
   </div>
 
   <div id="toast"></div>
 
   <script src="logic.js"></script>
+  <script src="i18n.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

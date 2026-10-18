@@ -13,13 +13,14 @@ button {
   border-radius: 14px; touch-action: manipulation;
 }
 button.big {
-  font-size: 1.35rem; font-weight: 900; letter-spacing: .04em;
+  font-size: 1.3rem; white-space: nowrap; font-weight: 900; letter-spacing: .04em;
   padding: 16px 28px; color: #2b1300;
   background: linear-gradient(#ffd23f, #ff8c1a);
   box-shadow: 0 6px 0 #b34d00, 0 10px 24px rgba(0,0,0,.45);
 }
 button.big:active { transform: translateY(4px); box-shadow: 0 2px 0 #b34d00, 0 4px 10px rgba(0,0,0,.4); }
 button.ghost { background: rgba(255,255,255,.12); width: 52px; height: 52px; font-size: 1.4rem; }
+button.ghost.lang { font-size: .95rem; font-weight: 900; width: 44px; height: 40px; }
 
 /* HUD */
 #hud { position: fixed; inset: 0; pointer-events: none; padding: max(12px, env(safe-area-inset-top)) 14px 0; }
@@ -59,7 +60,8 @@ button.ghost { background: rgba(255,255,255,.12); width: 52px; height: 52px; fon
 }
 .shop-top { display: flex; justify-content: space-between; align-items: center; }
 .title { font-size: 2rem; font-weight: 900; letter-spacing: .06em; color: #ffd23f; text-shadow: 0 3px 0 #b34d00; }
-.title span { color: #ff4d6d; }
+.title span:last-child { color: #ff4d6d; }
+.top-right { display: flex; align-items: center; gap: 8px; }
 .wallet { font-size: 1.4rem; font-weight: 900; background: rgba(0,0,0,.35); border-radius: 999px; padding: 6px 14px; }
 .record { margin: 8px 0; opacity: .85; }
 .progress { position: relative; height: 14px; border-radius: 8px; background: rgba(255,255,255,.12); margin: 6px 26px 14px 0; }

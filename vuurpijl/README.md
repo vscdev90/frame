@@ -9,6 +9,8 @@ Een verslavend lanceer-en-upgrade-spelletje voor Android, in de stijl van *Epic 
 5. **Evolueer** je pijl: Sterretje → Knalpijl → Fluitpijl → Gouden Komeet → Dubbele Draak → Maanraket.
 6. Het doel: **de maan** (6.000 m).
 
+Het spel is er in het **Nederlands en Engels** (*Rocket!*). Het start in de taal van je telefoon; met de NL/EN-knop rechtsboven in de schuur wissel je.
+
 ## APK installeren
 
 Elke push naar `vuurpijl/` bouwt via GitHub Actions (`.github/workflows/vuurpijl-apk.yml`) een APK en zet die bij
@@ -21,6 +23,7 @@ Nieuwe versies installeren over de oude heen; je voortgang blijft bewaard.
 | --- | --- |
 | `www/` | Het spel zelf (HTML5 canvas, geen libraries). Werkt ook gewoon in een browser. |
 | `www/logic.js` | Regels, upgrades, evoluties en de natuurkunde — los van de DOM. |
+| `www/i18n.js` | Alle teksten in het Nederlands en Engels. |
 | `android/` | Minimale Android-app: een schermvullende WebView die `www/` uit de APK laadt. |
 | `tests/balance.mjs` | Simuleert een speler en checkt dat de maan haalbaar is in een redelijk aantal vluchten. |
 | `tests/play.mjs` | Speelt het spel in een echte browser (aansteken, vliegen, upgraden). |

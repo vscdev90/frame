@@ -16,6 +16,15 @@ await page.waitForTimeout(500);
 if (await state() !== 'shop') throw new Error('did not start in the shop');
 await shot('1-shop');
 
+// language: an English browser starts in English, and the button switches
+const txt = (sel) => page.textContent(sel);
+if (!(await txt('#btn-launch')).includes('LAUNCH')) throw new Error('English browser did not start in English');
+await page.click('#btn-lang');
+if (!(await txt('#btn-launch')).includes('LANCEREN')) throw new Error('language button did not switch to Dutch');
+if (!(await txt('#upgrades')).includes('Stuwkracht')) throw new Error('upgrades not translated');
+await page.click('#btn-lang');
+if (!(await txt('#upgrades')).includes('Thrust')) throw new Error('upgrades not switched back to English');
+
 for (let flight = 0; flight < 3; flight++) {
   await page.click('#btn-launch');
   await page.click('#btn-light');
