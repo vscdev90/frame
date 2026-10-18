@@ -14,7 +14,7 @@ function fly(save) {
     L.step(r, st, dt, 0);
     t += dt;
   }
-  const coins = Math.floor(r.maxY * 0.08) + 4;
+  const coins = Math.floor((r.maxY * 0.08 + 4) * st.coin);
   return { h: r.maxY, t, earn: coins + L.heightBonus(r.maxY, st) };
 }
 
@@ -29,6 +29,8 @@ while (flights < 600) {
   save.record = Math.max(save.record, f.h);
   if (flights % 10 === 0 || f.h >= L.MOON_Y) marks.push(`#${flights} h=${f.h.toFixed(0)}m t=${f.t.toFixed(1)}s evo=${save.evo} earn=${f.earn}`);
   if (f.h >= L.MOON_Y) break;
+  // a sensible player always launches from the best site unlocked
+  save.site = L.SITES.reduce((best, s, i) => (save.record >= s.need ? i : best), 0);
   for (;;) {
     const ne = L.EVOS[save.evo + 1];
     if (ne && save.record >= ne.need && save.coins >= ne.cost) { save.coins -= ne.cost; save.evo++; continue; }

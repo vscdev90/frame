@@ -119,3 +119,23 @@ button.buy.max { background: rgba(255,210,63,.25); color: #ffd23f; }
   text-shadow: 0 3px 0 #000, 0 0 18px rgba(255,200,0,.8); transition: opacity .2s, transform .2s;
 }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* sites and rocket types */
+.sec { margin: 14px 0 6px; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; touch-action: pan-x pan-y; }
+.chips::-webkit-scrollbar { display: none; }
+button.chip {
+  flex: none; width: 108px; padding: 8px 6px; text-align: center;
+  background: rgba(255,255,255,.08); border: 2px solid transparent;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+button.chip .ci { font-size: 1.7rem; line-height: 1.2; }
+button.chip .cn { font-weight: 800; font-size: .88rem; line-height: 1.15; }
+button.chip .cs { font-size: .72rem; opacity: .75; line-height: 1.2; }
+button.chip.sel { border-color: #ffd23f; background: rgba(255,210,63,.16); }
+button.chip.locked { opacity: .45; }
+button.chip.buyable { border-color: rgba(183,255,138,.7); }
+button.ghost.on { background: rgba(255,210,63,.35); }
+
+#hud-zone.hint { font-size: 1.1rem; }
+#btn-turbo { left: 0; right: 0; margin: 0 auto; width: fit-content; }

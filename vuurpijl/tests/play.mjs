@@ -50,10 +50,42 @@ const after = await page.evaluate(() => window.__vp.save);
 const total = Object.values(after.lv).reduce((a, b) => a + b, 0);
 if (total !== 1) throw new Error('upgrade not applied');
 
+// shop shows every launch site and rocket type
+if ((await page.$$('#sites .chip')).length !== 5) throw new Error('expected 5 launch sites');
+if ((await page.$$('#types .chip')).length !== 6) throw new Error('expected 6 rocket types');
+
+// fly once from every site with every rocket type (all unlocked)
+for (let i = 0; i < 6; i++) {
+  await page.evaluate((i) => {
+    const s = window.__vp.save;
+    Object.assign(s, { record: 4000, coins: 1e6, types: [0, 1, 2, 3, 4, 5], type: i, site: i % 5, evo: 2 });
+    Object.assign(s.lv, { kruit: 8, stuw: 8, aero: 8 });
+    localStorage.setItem('vuurpijl-save-v1', JSON.stringify(s));
+  }, i);
+  await page.reload();
+  await page.click('#btn-launch');
+  await page.waitForTimeout(300);
+  await shot(`8-site${i}`);
+  await page.click('#btn-light');
+  await page.waitForTimeout(500);
+  await page.mouse.click(195, 400);
+  for (let k = 0; k < 160 && (await state()) === 'flight'; k++) {
+    if (i === 5 && k === 12) await shot('9-flight-two-stager');
+    await page.waitForTimeout(150);
+  }
+  if (await state() !== 'boom') throw new Error('type ' + i + ' did not explode, state ' + (await state()));
+  await page.waitForTimeout(250);
+  await shot(`10-bang${i}`);
+  await page.waitForTimeout(150);
+  await page.mouse.click(195, 400); // tap skips the rest of the explosion
+  if (await state() !== 'result') throw new Error('tap did not skip the explosion');
+  await page.click('#btn-continue');
+}
+
 // a long flight with a strong rocket, to exercise high zones and the moon
 await page.evaluate(() => {
   const s = window.__vp.save;
-  Object.assign(s.lv, { kruit: 20, stuw: 20, aero: 20, turbo: 5 }); s.evo = 5;
+  Object.assign(s.lv, { kruit: 20, stuw: 20, aero: 20, turbo: 5 }); s.evo = 5; s.type = 0; s.site = 4;
   localStorage.setItem('vuurpijl-save-v1', JSON.stringify(s));
 });
 await page.reload();
@@ -62,6 +94,8 @@ await page.click('#btn-light');
 await page.waitForTimeout(600);
 await page.mouse.click(195, 400);
 for (let i = 0; i < 200 && (await state()) === 'flight'; i++) {
+  if (i === 14) await shot('6a-clouds');
+  if (i === 22) await shot('6b-aurora');
   if (i === 30) await shot('6-high');
   if (await page.isVisible('#btn-turbo') && i % 8 === 0) await page.dispatchEvent('#btn-turbo', 'pointerdown');
   await page.waitForTimeout(250);

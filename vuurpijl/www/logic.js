@@ -39,6 +39,26 @@
     { id: 'turbo',   name: 'Turbo',      icon: '⚡', desc: '+1 turbostoot per vlucht',      max: 5,  base: 150, grow: 3.2 },
   ];
 
+  // Launch sites ("levels"): unlocked by your height record, each pays more.
+  const SITES = [
+    { id: 'tuin',   icon: '🏡', name: 'Achtertuin',   need: 0,    mult: 1 },
+    { id: 'strand', icon: '🏖️', name: 'Strand',       need: 150,  mult: 1.15 },
+    { id: 'stad',   icon: '🏙️', name: 'Stad',         need: 600,  mult: 1.3 },
+    { id: 'berg',   icon: '🏔️', name: 'Bergtop',      need: 1500, mult: 1.45 },
+    { id: 'basis',  icon: '🛰️', name: 'Lanceerbasis', need: 3000, mult: 1.6 },
+  ];
+
+  // Rocket types: bought once, then pick one before a flight. Each trades
+  // something off; w/len shape the drawing, burst picks the explosion.
+  const TYPES = [
+    { id: 'klassiek', icon: '🎆', name: 'Klassiek',      desc: 'Alles gemiddeld',              cost: 0,     need: 0,    thrust: 1,    fuel: 1,    bang: 1,   coin: 1,   magnet: 0,  stages: 1, w: 1,    len: 1,    burst: 'peony' },
+    { id: 'dik',      icon: '💣', name: 'Dikke Bertha',  desc: 'Traag, maar een MEGA-knal',    cost: 500,   need: 80,   thrust: 0.85, fuel: 1.1,  bang: 2.2, coin: 1,   magnet: 0,  stages: 1, w: 1.6,  len: 0.92, burst: 'big' },
+    { id: 'gier',     icon: '😱', name: 'Gierpijl',      desc: 'Supersnel, kort, kleine knal', cost: 1500,  need: 250,  thrust: 1.35, fuel: 0.75, bang: 0.8, coin: 1,   magnet: 0,  stages: 1, w: 0.75, len: 1.1,  burst: 'willow' },
+    { id: 'lang',     icon: '🕯️', name: 'Lange Brander', desc: 'Zwakker, brandt veel langer',  cost: 5000,  need: 600,  thrust: 0.9,  fuel: 1.6,  bang: 1,   coin: 1,   magnet: 0,  stages: 1, w: 0.95, len: 1.35, burst: 'ring' },
+    { id: 'goud',     icon: '💰', name: 'Goudzoeker',    desc: 'Munten ×1,6 en trekt ze aan',  cost: 12000, need: 1200, thrust: 0.95, fuel: 1,    bang: 1.2, coin: 1.6, magnet: 50, stages: 1, w: 1.1,  len: 1,    burst: 'gold' },
+    { id: 'trap',     icon: '⏫', name: 'Tweetrapper',   desc: 'Tweede trap ontsteekt in de lucht', cost: 30000, need: 2200, thrust: 1.05, fuel: 1.25, bang: 1.3, coin: 1, magnet: 0, stages: 2, w: 1.05, len: 1.3, burst: 'multi' },
+  ];
+
   function cost(u, lvl) {
     return Math.round(u.base * Math.pow(u.grow, lvl));
   }
@@ -46,29 +66,36 @@
   function freshSave() {
     const lv = {};
     for (const u of UPGRADES) lv[u.id] = 0;
-    return { coins: 0, record: 0, evo: 0, lv, zones: 0, flights: 0, moon: 0, sound: true };
+    return { coins: 0, record: 0, evo: 0, lv, zones: 0, flights: 0, moon: 0, sound: true, site: 0, type: 0, types: [0], tilt: false };
   }
 
   function stats(save) {
     const L = save.lv;
     const evo = EVOS[save.evo];
+    const type = TYPES[save.type || 0], site = SITES[save.site || 0];
     return {
-      fuel: 1.3 + 0.36 * L.kruit,                    // seconds of burn
-      thrust: (24 + 5 * L.stuw) * evo.mult,           // m/s²
+      fuel: (1.3 + 0.36 * L.kruit) * type.fuel,      // seconds of burn
+      thrust: (24 + 5 * L.stuw) * evo.mult * type.thrust, // m/s²
       drag: 0.012 * Math.pow(0.9, L.aero),          // quadratic drag coefficient
       perfect: 0.07 + 0.018 * L.lont,                // half-width of the perfect zone (0..1 meter)
       steer: 2.2 + 0.45 * L.stuur,                   // how fast the rocket follows your finger
       stab: L.stuur,
-      knal: 1 + 0.2 * L.knal,                        // height-bonus multiplier
-      magnet: L.magneet ? 30 + 16 * L.magneet : 0,   // screen px
+      knal: (1 + 0.2 * L.knal) * type.bang,          // height-bonus multiplier
+      magnet: (L.magneet ? 30 + 16 * L.magneet : 0) + type.magnet, // screen px
       turbo: L.turbo,
+      coin: site.mult * type.coin,                   // coin value multiplier
+      income: site.mult,                             // height-bonus multiplier from the site
+      stages: type.stages,
     };
   }
 
   function newRocket(st, boost) {
     return {
       x: 0, y: 0, vx: 0, vy: 0, ang: 0, spin: 0,
-      fuel: st.fuel, fuelMax: st.fuel, boost,
+      // a two-stager splits its powder; the second stage burns hotter
+      fuel: st.stages > 1 ? st.fuel * 0.55 : st.fuel,
+      fuelMax: st.stages > 1 ? st.fuel * 0.55 : st.fuel,
+      fuel2: st.stages > 1 ? st.fuel * 0.6 : 0, staged: false, boost,
       turboT: 0, turboLeft: st.turbo,
       maxY: 0, coins: 0, burning: true, fallT: 0,
     };
@@ -76,6 +103,12 @@
 
   // Advance the rocket by dt. target is -1..1 (where the player points).
   function step(r, st, dt, target) {
+    if (r.fuel <= 0 && r.fuel2 > 0) {
+      r.fuel = r.fuelMax = r.fuel2;
+      r.fuel2 = 0;
+      r.boost *= 1.4;
+      r.staged = true;
+    }
     const burning = r.fuel > 0 || r.turboT > 0;
     if (burning) {
       const want = target * MAX_ANGLE;
@@ -122,7 +155,7 @@
   }
 
   function heightBonus(maxY, st) {
-    return Math.floor((5 + maxY * 0.3) * st.knal);
+    return Math.floor((5 + maxY * 0.3) * st.knal * (st.income || 1));
   }
 
   function zoneIndex(y) {
@@ -131,7 +164,7 @@
     return i;
   }
 
-  const api = { G, MOON_Y, MAX_ANGLE, ZONES, EVOS, UPGRADES, cost, freshSave, stats, newRocket, step, finished, heightBonus, zoneIndex };
+  const api = { G, MOON_Y, MAX_ANGLE, ZONES, EVOS, UPGRADES, SITES, TYPES, cost, freshSave, stats, newRocket, step, finished, heightBonus, zoneIndex };
   root.VPLogic = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

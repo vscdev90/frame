@@ -9,6 +9,17 @@ Een verslavend lanceer-en-upgrade-spelletje voor Android, in de stijl van *Epic 
 5. **Evolueer** je pijl: Sterretje → Knalpijl → Fluitpijl → Gouden Komeet → Dubbele Draak → Maanraket.
 6. Het doel: **de maan** (6.000 m).
 
+**Lanceerplekken (levels)** komen vrij als je hoog genoeg bent geweest, en betalen meer munten:
+🏡 Achtertuin → 🏖️ Strand (150 m) → 🏙️ Stad (600 m) → 🏔️ Bergtop (1.500 m) → 🛰️ Lanceerbasis (3.000 m).
+Onderweg vlieg je door onweer in de wolken, noorderlicht in de stratosfeer en langs planeten in de ruimte.
+
+**Pijltypes** koop je één keer en kies je voor elke vlucht:
+🎆 Klassiek · 💣 Dikke Bertha (traag, MEGA-knal) · 😱 Gierpijl (snel, kort) · 🕯️ Lange Brander (brandt lang) ·
+💰 Goudzoeker (meer munten) · ⏫ Tweetrapper (tweede trap ontsteekt in de lucht). Elk type heeft een eigen explosie.
+
+**Sturen:** houd links of rechts van het scherm vast, of zet 📱 aan om te sturen door je telefoon te kantelen.
+Tik tijdens de knal om meteen naar de uitslag te gaan.
+
 Het spel is er in het **Nederlands en Engels** (*Rocket!*). Het start in de taal van je telefoon; met de NL/EN-knop rechtsboven in de schuur wissel je.
 
 ## APK installeren

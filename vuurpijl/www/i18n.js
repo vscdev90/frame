@@ -19,6 +19,9 @@
       toMoon: 'Op naar de maan!', reachFirst: (m) => 'Haal eerst ' + m + ' m hoogte',
       evolved: 'EVOLUTIE! ', newZone: '✨ NIEUW: ', resetAsk: 'Alle voortgang wissen en opnieuw beginnen?',
       locale: 'nl-NL',
+      siteHead: 'Lanceerplek', typeHead: 'Pijltype', upgHead: 'Upgrades',
+      stage2: 'TRAP 2! 🔥', steerHint: '◀ Houd links of rechts vast om te sturen ▶',
+      tilt: 'Kantelen', tiltOn: '📱 Sturen door te kantelen: AAN', tiltOff: '📱 Kantelen: UIT', tap: 'Tik om door te gaan',
     },
     en: {
       title: 'ROCKET', record: 'Record', flights: 'Flights', yourRocket: 'Your rocket',
@@ -35,6 +38,9 @@
       toMoon: 'To the moon!', reachFirst: (m) => 'Reach ' + m + ' m first',
       evolved: 'EVOLVED! ', newZone: '✨ NEW: ', resetAsk: 'Erase all progress and start over?',
       locale: 'en-US',
+      siteHead: 'Launch site', typeHead: 'Rocket type', upgHead: 'Upgrades',
+      stage2: 'STAGE 2! 🔥', steerHint: '◀ Hold left or right to steer ▶',
+      tilt: 'Tilt', tiltOn: '📱 Tilt steering: ON', tiltOff: '📱 Tilt: OFF', tap: 'Tap to continue',
     },
   };
 
@@ -51,6 +57,16 @@
     turbo:   ['Turbo',      '+1 turbo boost per flight'],
   };
 
+  const EN_SITES = ['Backyard', 'Beach', 'City', 'Mountain top', 'Launch base'];
+  const EN_TYPES = [
+    ['Classic',      'All-round'],
+    ['Big Bertha',   'Slow, but a MEGA bang'],
+    ['Screamer',     'Super fast, short, small bang'],
+    ['Long Burner',  'Weaker, burns much longer'],
+    ['Gold Digger',  'Coins ×1.6 and pulls them in'],
+    ['Two-Stager',   'Second stage ignites mid-air'],
+  ];
+
   function pickDefault() {
     const l = ((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase();
     return l.startsWith('nl') ? 'nl' : 'en';
@@ -63,6 +79,9 @@
     pickDefault,
     zone(i, L) { return I.lang === 'en' ? EN_ZONES[i] : L.ZONES[i].name; },
     evo(i, L) { return I.lang === 'en' ? EN_EVOS[i] : L.EVOS[i].name; },
+    site(i, L) { return I.lang === 'en' ? EN_SITES[i] : L.SITES[i].name; },
+    typeName(i, L) { return I.lang === 'en' ? EN_TYPES[i][0] : L.TYPES[i].name; },
+    typeDesc(i, L) { return I.lang === 'en' ? EN_TYPES[i][1] : L.TYPES[i].desc; },
     upgName(u) { return I.lang === 'en' ? EN_UPGRADES[u.id][0] : u.name; },
     upgDesc(u) { return I.lang === 'en' ? EN_UPGRADES[u.id][1] : u.desc; },
   };
