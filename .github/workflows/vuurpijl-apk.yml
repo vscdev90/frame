@@ -1,0 +1,68 @@
+name: Vuurpijl APK
+
+on:
+  push:
+    paths:
+      - 'vuurpijl/**'
+      - '.github/workflows/vuurpijl-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to publish the APK as a release
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check
+        run: for f in vuurpijl/www/*.js; do node --check "$f"; done
+
+      - name: Balance check (the moon is reachable, but not too fast)
+        run: node vuurpijl/tests/balance.mjs
+
+      - name: Play the game in a browser
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+          (cd vuurpijl/www && python3 -m http.server 8898 >/tmp/serve.log 2>&1 &)
+          for i in $(seq 1 20); do curl -sf http://localhost:8898/index.html >/dev/null && break; sleep 0.5; done
+          node vuurpijl/tests/play.mjs
+        env:
+          PLAYWRIGHT_MODULE: playwright
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        working-directory: vuurpijl/android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Vuurpijl.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vuurpijl-apk
+          path: Vuurpijl.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: vuurpijl-v${{ github.run_number }}
+          name: Vuurpijl! build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: Vuurpijl.apk
+          body: |
+            Download **Vuurpijl.apk** op je Android-telefoon en open het bestand.
+            Sta "installeren van onbekende bronnen" toe als je telefoon daarom vraagt.

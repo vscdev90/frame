@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'nl.vuurpijl.game'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'nl.vuurpijl.game'
+        minSdk 26
+        targetSdk 35
+        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+        versionName "1.0.${System.getenv('GITHUB_RUN_NUMBER') ?: '0'}"
+    }
+
+    // The game itself is the web build next door; one source for browser and APK.
+    sourceSets {
+        main.assets.srcDirs = ['../../www']
+    }
+
+    // A fixed key so every new APK installs over the previous one and keeps
+    // your progress. It is a hobby key, committed on purpose: do not reuse it
+    // for anything published to the Play Store.
+    signingConfigs {
+        hobby {
+            storeFile file('vuurpijl.keystore')
+            storePassword 'vuurpijl'
+            keyAlias 'vuurpijl'
+            keyPassword 'vuurpijl'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.hobby
+        }
+        debug {
+            signingConfig signingConfigs.hobby
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

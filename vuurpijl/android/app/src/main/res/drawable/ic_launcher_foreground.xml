@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A red rocket on its stick with a flame, inside the 72dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- sparks -->
+    <path android:fillColor="#FFD23F" android:pathData="M30,34 l2,-5 2,5 5,2 -5,2 -2,5 -2,-5 -5,-2z" />
+    <path android:fillColor="#4CC9F0" android:pathData="M76,42 l1.5,-4 1.5,4 4,1.5 -4,1.5 -1.5,4 -1.5,-4 -4,-1.5z" />
+    <path android:fillColor="#FF4D6D" android:pathData="M72,70 l1.5,-4 1.5,4 4,1.5 -4,1.5 -1.5,4 -1.5,-4 -4,-1.5z" />
+    <!-- flame -->
+    <path android:fillColor="#FF8C1A" android:pathData="M48,62 Q54,84 60,62z" />
+    <path android:fillColor="#FFF6C8" android:pathData="M51,62 Q54,74 57,62z" />
+    <!-- stick -->
+    <path android:fillColor="#C8955A" android:pathData="M53,62 h2 v22 h-2z" />
+    <!-- fins -->
+    <path android:fillColor="#FFD23F" android:pathData="M47,50 L41,63 L47,62z M61,50 L67,63 L61,62z" />
+    <!-- body -->
+    <path android:fillColor="#E63946" android:pathData="M47,36 h14 v26 h-14z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M47,42 h14 v3 h-14z M47,50 h14 v3 h-14z" />
+    <!-- nose -->
+    <path android:fillColor="#FFD23F" android:pathData="M46,36 L54,22 L62,36z" />
+</vector>
