@@ -10,10 +10,18 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + 
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 const shot = async (n) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${n}.png` }); };
 const state = () => page.evaluate(() => window.__vp.state);
+// the splash screen covers everything until it is tapped
+const reload = async () => { await page.reload(); await page.click('#splash'); await page.waitForTimeout(550); };
 
 await page.goto(BASE + '/index.html');
-await page.waitForTimeout(500);
+await page.waitForTimeout(300);
+if (!(await page.isVisible('#splash'))) throw new Error('no splash screen');
+await shot('0-splash');
+await page.click('#splash');
+await page.waitForTimeout(600);
+if (await page.isVisible('#splash')) throw new Error('splash did not close');
 if (await state() !== 'shop') throw new Error('did not start in the shop');
+if (!(await page.evaluate(() => window.__vp.music))) throw new Error('menu music did not start');
 await shot('1-shop');
 
 // language: always English, also on a Dutch phone, and no language button
@@ -67,7 +75,7 @@ const setSave = (fn) => page.evaluate((src) => {
 }, fn);
 if ((await page.$$('#missions .mission')).length !== 4) throw new Error('expected 3 missions and a chest');
 await setSave('const m = s.daily.missions[0]; m.progress = m.target; s.coins = 50000;');
-await page.reload();
+await reload();
 const before = await page.evaluate(() => window.__vp.save.coins);
 await page.click('#missions .mission:first-child button');
 const claimed = await page.evaluate(() => window.__vp.save);
@@ -125,6 +133,51 @@ if (!/^rocket-\d+m\.png$/.test(file.suggestedFilename())) throw new Error('unexp
 await shot('15-result');
 await page.click('#btn-continue');
 
+// cheat mode: five taps on the title
+for (let i = 0; i < 5; i++) await page.click('#shop .title');
+if (!(await page.isVisible('#cheats'))) throw new Error('cheat mode did not open');
+const c0 = await page.evaluate(() => window.__vp.save.coins);
+await page.click('[data-cheat=coins]');
+if ((await page.evaluate(() => window.__vp.save.coins)) !== c0 + 1e6) throw new Error('coin cheat');
+await page.click('[data-cheat=god]');
+if (!(await page.evaluate(() => window.__vp.save.god))) throw new Error('god mode cheat');
+await shot('17-cheats');
+await page.click('[data-cheat=god]');
+await page.click('[data-cheat=hide]');
+
+// the space rocket counts down before it lifts off; the cola gets a mint
+await setSave('s.types = [...Array(20).keys()]; s.type = 19;');
+await reload();
+await page.click('#btn-launch');
+if (await page.evaluate(() => window.__vp.music)) throw new Error('music should stop on the launch pad');
+await page.click('#btn-light');
+await page.waitForTimeout(500);
+await page.mouse.click(195, 400);
+if (await state() !== 'countdown') throw new Error('space rocket did not count down');
+await page.waitForTimeout(1200);
+await shot('18-countdown');
+for (let k = 0; k < 40 && (await state()) === 'countdown'; k++) await page.waitForTimeout(150);
+if (await state() !== 'flight') throw new Error('countdown did not lift off');
+await page.waitForTimeout(250);
+await shot('19-liftoff');
+for (let k = 0; k < 300 && (await state()) === 'flight'; k++) await page.waitForTimeout(150);
+for (let k = 0; k < 20 && (await state()) !== 'result'; k++) await page.waitForTimeout(150);
+await page.click('#btn-continue');
+await setSave('s.type = 6;');
+await reload();
+await page.click('#btn-launch');
+await page.click('#btn-light');
+await page.waitForTimeout(250);
+await shot('20-cola-mint');
+await page.waitForTimeout(900);
+await shot('21-cola-fizz');
+await page.mouse.click(195, 400);
+await page.waitForTimeout(200);
+await shot('22-cola-liftoff');
+for (let k = 0; k < 300 && (await state()) === 'flight'; k++) await page.waitForTimeout(150);
+for (let k = 0; k < 20 && (await state()) !== 'result'; k++) await page.waitForTimeout(150);
+await page.click('#btn-continue');
+
 // fly once from every site with everything you can launch (all unlocked)
 for (let i = 0; i < 20; i++) {
   await page.evaluate((i) => {
@@ -133,13 +186,14 @@ for (let i = 0; i < 20; i++) {
     Object.assign(s.lv, { kruit: 2, stuw: 6, aero: 6 });
     localStorage.setItem('vuurpijl-save-v1', JSON.stringify(s));
   }, i);
-  await page.reload();
+  await reload();
   await page.click('#btn-launch');
   await page.waitForTimeout(300);
   if (i < 5 || i % 3 === 0) await shot(`8-site${i}`);
   await page.click('#btn-light');
   await page.waitForTimeout(500);
   await page.mouse.click(195, 400);
+  for (let k = 0; k < 40 && (await state()) === 'countdown'; k++) await page.waitForTimeout(150);
   for (let k = 0; k < 300 && (await state()) === 'flight'; k++) {
     if (k === 6) await shot(`9-fly${i}`);
     await page.waitForTimeout(150);
@@ -159,11 +213,12 @@ await page.evaluate(() => {
   Object.assign(s.lv, { kruit: 25, stuw: 25, aero: 25, turbo: 5 }); s.evo = 8; s.type = 19; s.site = 4;
   localStorage.setItem('vuurpijl-save-v1', JSON.stringify(s));
 });
-await page.reload();
+await reload();
 await page.click('#btn-launch');
 await page.click('#btn-light');
 await page.waitForTimeout(600);
 await page.mouse.click(195, 400);
+for (let k = 0; k < 40 && (await state()) === 'countdown'; k++) await page.waitForTimeout(150);
 for (let i = 0; i < 480 && (await state()) === 'flight'; i++) {
   if (i % 40 === 10) await shot(`6-high${i}`);
   if (await page.isVisible('#btn-turbo') && i % 8 === 0) await page.dispatchEvent('#btn-turbo', 'pointerdown');
@@ -177,7 +232,7 @@ if (await state() === 'result') await page.click('#btn-continue');
 
 // a new universe after the black hole
 await setSave('s.ends = Math.max(1, s.ends);');
-await page.reload();
+await reload();
 if (!(await page.isVisible('#prestige'))) throw new Error('new universe not offered');
 page.once('dialog', (d) => d.accept());
 await page.click('#btn-prestige');

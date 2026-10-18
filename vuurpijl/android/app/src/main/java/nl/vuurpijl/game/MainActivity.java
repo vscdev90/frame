@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.speech.tts.TextToSpeech;
 import android.util.Base64;
 import android.view.View;
 import android.view.WindowInsets;
@@ -24,6 +25,7 @@ import androidx.webkit.WebViewAssetLoader;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Locale;
 
 /** Full-screen WebView that runs the game from the APK's assets. */
 public class MainActivity extends Activity {
@@ -31,6 +33,8 @@ public class MainActivity extends Activity {
     private static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
 
     private WebView web;
+    private TextToSpeech tts;
+    private boolean ttsReady;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +65,15 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
 
+        // a voice for the countdown and the moon
+        tts = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                tts.setLanguage(Locale.US);
+                tts.setSpeechRate(0.95f);
+                ttsReady = true;
+            }
+        });
+
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
         web.loadUrl(START_URL);
     }
@@ -72,6 +85,12 @@ public class MainActivity extends Activity {
             Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
             if (v == null || !v.hasVibrator()) return;
             v.vibrate(VibrationEffect.createOneShot(Math.max(1, Math.min(ms, 500)), VibrationEffect.DEFAULT_AMPLITUDE));
+        }
+
+        /** Says a line out loud (countdown, the moon). */
+        @JavascriptInterface
+        public void speak(String text) {
+            if (ttsReady) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "rocket");
         }
 
         /** Shares the score picture (base64 PNG) and a line of text with any app. */
@@ -146,6 +165,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (tts != null) tts.shutdown();
         web.destroy();
         super.onDestroy();
     }

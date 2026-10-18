@@ -32,6 +32,13 @@ Echte merknamen (NASA, F-16, F-35, Mentos, ACME, …) zitten er bewust niet in.
 - 📤 Deel een plaatje van je score.
 - 🌌 Na het zwarte gat: begin een nieuw heelal en verdien voortaan meer munten (prestige).
 
+**Show:** opstartscherm met menu-muziek (zelf gesynthetiseerd, geen audiobestanden), een aftelling met stem voor de
+ruimteraket, rook en vuur bij het opstijgen, een pepermuntje dat in de colafles valt, en bij de maan zegt een stem
+*"That's one small step for man, one giant leap for mankind."* De stem is de spraakfunctie van je telefoon, geen opname.
+
+**Cheatmodus (tijdelijk):** tik 5× snel op de titel ROCKET! in de schuur. Haal dit weg vóór een release in de Play Store
+(zoek naar `TEMPORARY cheat mode` in `index.html` en `game.js`).
+
 **Sturen:** houd links of rechts van het scherm vast, of zet 📱 aan om te sturen door je telefoon te kantelen.
 Tik tijdens de knal om meteen naar de uitslag te gaan.
 

@@ -67,6 +67,8 @@
       resCombo: 'Best combo', resAch: 'Achievements', share: '📤 SHARE',
       shareText: (h, where) => 'I flew ' + h + ' m to ' + where + ' in Rocket! Can you beat me? 🚀',
       shareTitle: 'I reached', shareBeat: 'Can you beat me?', best: 'BEST',
+      liftoff: 'LIFTOFF!', moonQuote: '“That\'s one small step for man, one giant leap for mankind.”',
+      cheatsOn: '🛠️ Cheat mode', soundAll: 'Sound and music', soundFx: 'Sound effects only', soundOff: 'Sound off',
     },
   };
 

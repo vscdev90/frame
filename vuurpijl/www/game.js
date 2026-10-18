@@ -55,6 +55,9 @@
       A.master = A.ctx.createGain();
       A.master.gain.value = save.sound ? 0.6 : 0;
       A.master.connect(A.ctx.destination);
+      A.music = A.ctx.createGain();
+      A.music.gain.value = save.music === false ? 0 : 0.45;
+      A.music.connect(A.master);
       const len = A.ctx.sampleRate * 2;
       A.noise = A.ctx.createBuffer(1, len, A.ctx.sampleRate);
       const d = A.noise.getChannelData(0);
@@ -66,15 +69,89 @@
     I.set(lang);
     document.documentElement.lang = I.lang;
     document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = T(el.dataset.i18n); });
-    $('btn-sound').setAttribute('aria-label', T('sound'));
     $('btn-reset').setAttribute('aria-label', T('reset'));
     $('btn-tilt').setAttribute('aria-label', T('tilt'));
   }
 
-  function setSound(on) {
-    save.sound = on; store();
+  // The sound button cycles: everything → effects only (no music) → silent.
+  function setSound(on, music) {
+    save.sound = on; save.music = on && music !== false; store();
     if (A.master) A.master.gain.value = on ? 0.6 : 0;
-    $('btn-sound').textContent = on ? '🔊' : '🔇';
+    if (A.music) A.music.gain.value = save.music ? 0.45 : 0;
+    $('btn-sound').textContent = !on ? '🔇' : save.music ? '🔊' : '🔈';
+    $('btn-sound').setAttribute('aria-label', T(!on ? 'soundOff' : save.music ? 'soundAll' : 'soundFx'));
+  }
+  function cycleSound() {
+    audioInit();
+    if (save.sound && save.music) setSound(true, false);
+    else if (save.sound) setSound(false);
+    else setSound(true, true);
+    if (save.music) musicStart(); else musicStop();
+  }
+
+  // ---------- menu music: a little chiptune, scheduled ahead on the audio clock ----------
+  const NOTE = (n) => {
+    if (n === '-') return 0;
+    const i = { C: -9, D: -7, E: -5, F: -4, G: -2, A: 0, B: 2 }[n[0]] + (n[1] === '#' ? 1 : 0);
+    return 440 * Math.pow(2, (i + (parseInt(n.slice(-1), 10) - 4) * 12) / 12);
+  };
+  const MELODY = ('E5 G5 C6 G5 A5 G5 E5 G5 F5 A5 C6 A5 G5 E5 D5 C5 ' +
+                  'E5 G5 C6 D6 E6 D6 C6 A5 G5 E5 D5 E5 C5 - G4 -').split(' ');
+  const BASS = ['C3', 'A2', 'F2', 'G2', 'C3', 'A2', 'G2', 'C3'];
+  const music = { on: false, timer: null, step: 0, next: 0, loop: 0 };
+  function note(f, t, dur, type, vol) {
+    if (!f) return;
+    const o = A.ctx.createOscillator(), g = A.ctx.createGain();
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(A.music);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function musicStep(i, t) {
+    const lead = NOTE(MELODY[i]) * (music.loop % 2 ? 2 : 1); // every other loop an octave up
+    note(lead, t, 0.22, 'square', 0.05);
+    const root = NOTE(BASS[Math.floor(i / 4)]);
+    if (i % 4 === 0) note(root, t, 0.4, 'triangle', 0.16);
+    if (i % 4 === 2) note(root * 1.5, t, 0.3, 'triangle', 0.12);
+    if (i % 2 === 1) {
+      const s = A.ctx.createBufferSource(), f = A.ctx.createBiquadFilter(), g = A.ctx.createGain();
+      s.buffer = A.noise; f.type = 'highpass'; f.frequency.value = 7000;
+      g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      s.connect(f); f.connect(g); g.connect(A.music); s.start(t, Math.random()); s.stop(t + 0.06);
+    }
+  }
+  function musicStart() {
+    if (!A.ctx || music.on || !save.sound || !save.music) return;
+    music.on = true; music.step = 0; music.next = A.ctx.currentTime + 0.1;
+    music.timer = setInterval(() => {
+      while (music.next < A.ctx.currentTime + 0.25) {
+        musicStep(music.step, music.next);
+        music.next += 0.24;
+        music.step = (music.step + 1) % MELODY.length;
+        if (!music.step) music.loop++;
+      }
+    }, 60);
+  }
+  function musicStop() {
+    if (!music.on) return;
+    music.on = false;
+    clearInterval(music.timer);
+  }
+
+  // A voice for the countdown and the moon. Android speaks through the app,
+  // browsers through speech synthesis; both stay quiet when the sound is off.
+  function say(text) {
+    if (!save.sound) return;
+    try {
+      if (window.AndroidBridge && window.AndroidBridge.speak) { window.AndroidBridge.speak(text); return; }
+      if (window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US'; u.rate = 0.95;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      }
+    } catch (e) { /* no voice then */ }
   }
   function tone(f0, dur, type, vol, f1, delay) {
     if (!A.ctx) return;
@@ -186,6 +263,7 @@
   let weather = { id: 'clear', wind: 0 };
   let fl = null, combo = 0, comboT = 0, bonusT = 0, bonusSpawn = 0, bossMet = {};
   let flightT = 0, ghostRec = [], ghostNext = 0;
+  let cd = null, saidMoon = false, quoteT = 0;   // space-rocket countdown, the moon quote
   const snow = Array.from({ length: 70 }, (_, i) => ({ x: hash(i + 2000), y: hash(i + 2100), s: 1 + hash(i + 2200) * 2.5 }));
 
   const stars = Array.from({ length: 160 }, (_, i) => ({ x: hash(i), y: hash(i + 500), s: 0.5 + hash(i + 900) * 1.8, p: hash(i + 1300) * 6.28 }));
@@ -459,6 +537,9 @@
       bonusT = 4;
       toast(T('coinRain'), 1000);
       sfx.perfect(); vib(40);
+    } else if (!o.hit && save.god) {
+      o.hit = true;
+      floatText(o.x, o.y, '😇', '#ffffff');
     } else if (!o.hit && rocket.shield) {
       o.hit = true;
       rocket.shield = false;
@@ -500,6 +581,7 @@
 
   function goShop() {
     state = 'shop';
+    musicStart();
     resetCamera();
     show('result', false); show('hud', false); show('ignite', false);
     renderShop();
@@ -515,6 +597,7 @@
 
   function goIgnite() {
     audioInit();
+    musicStop();
     const id = M.rollWeather(new Date(), Math.random());
     weather = { id, wind: id === 'wind' ? (Math.random() < 0.5 ? -1 : 1) * rand(4, 8) : 0 };
     const w = M.WEATHER[id];
@@ -551,9 +634,24 @@
 
   function launch(boost, label) {
     ign.done = true;
-    loopStop('fuse');
     show('ignite', false);
     if (st.autoBoost && boost < 1.2) { boost = 1.2; label = T('good'); }
+    if (TYPE().id === 'nasa') {
+      // T-minus three
+      loopStop('fuse');
+      state = 'countdown';
+      cd = { t: 0, n: 4, boost, label };
+      show('countdown', true);
+      loopStart('thrust', 'lowpass', 300, 0.8);
+      loopSet('thrust', 0.2);
+      return;
+    }
+    liftoff(boost, label);
+  }
+
+  function liftoff(boost, label) {
+    loopStop('fuse');
+    show('countdown', false);
     rocket = L.newRocket(st, boost);
     Object.assign(rocket, { shield: false, magnetT: 0, slowT: 0 });
     fl = { bestCombo: 0, hits: 0, perfect: boost >= 1.3, powerups: 0 };
@@ -562,7 +660,7 @@
     flightT = 0; ghostRec = []; ghostNext = 0;
     nextSpawnY = 12;
     objects = [];
-    flightZone = 0; reachedEnd = false; stageShown = 1; lastPuff = false;
+    flightZone = 0; reachedEnd = false; stageShown = 1; lastPuff = false; saidMoon = false;
     state = 'flight';
     if (save.flights < 3) {
       $('hud-zone').textContent = T('steerHint');
@@ -570,6 +668,8 @@
       hudZoneT = 3.5;
     }
     show('hud', true);
+    show('btn-boom', !!save.infFuel);
+    $('hud-quote').classList.remove('show'); quoteT = 0;
     $('hud-wx').textContent = weather.id === 'clear' ? '' : M.WEATHER[weather.id].icon + ' ' + M.WEATHER[weather.id].name;
     $('hud-combo').textContent = '';
     updateTurboBtn();
@@ -577,7 +677,47 @@
     if (boost >= 1.3) { sfx.perfect(); vib(50); }
     sfx.launchFor(TYPE().id); vib(30);
     loopStart('thrust', 'lowpass', 500, 0.8);
-    for (let i = 0; i < 40; i++) part(0, 0, { vx: rand(-160, 160), vy: rand(-80, 10), g: 60, drag: 0.95, life: rand(0.6, 1.4), size: rand(6, 14), color: '#9aa', glow: false, grow: 14 });
+    liftoffFx(TYPE());
+  }
+
+  // Smoke, fire, foam and other mess on the pad at liftoff, per vehicle.
+  function liftoffFx(t) {
+    const smoke = (n, spread, size) => {
+      for (let i = 0; i < n; i++) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        part(0, 0, { vx: side * rand(40, spread), vy: rand(-60, 10), g: 20, drag: 0.97, life: rand(1.2, 2.6), size: rand(8, size), color: ['#9aa0ad', '#c5cad3', '#7d8494'][i % 3], glow: false, grow: size * 1.6 });
+      }
+    };
+    const fire = (n, col) => {
+      for (let i = 0; i < n; i++) part(0, 0, { vx: rand(-120, 120), vy: rand(-40, 60), drag: 0.93, life: rand(0.3, 0.8), size: rand(6, 16), grow: 20, color: col[i % col.length] });
+    };
+    switch (t.id) {
+      case 'nasa': // the big one: billows of smoke rolling out across the ground and a column of fire
+        smoke(260, 520, 24); fire(90, ['#fff6c8', '#ffb703', '#ff6b00']);
+        shake = 28; vib(400);
+        burst(3, 0.8, 120, 900, 'lowpass'); tone(38, 2.2, 'sine', 0.7, 25);
+        break;
+      case 'jager': case 'hover': case 'stealth': case 'ufo':
+        smoke(110, 300, 16); fire(30, t.id === 'ufo' ? ['#7cfc00', '#c8ffb0'] : ['#ffffff', '#4cc9f0']);
+        shake = 12;
+        break;
+      case 'cola': // a foam fountain all over the pad
+        for (let i = 0; i < 120; i++) part(0, 0, { vx: rand(-260, 260), vy: rand(-300, 40), g: 420, drag: 0.97, life: rand(0.6, 1.3), size: rand(3, 7), color: Math.random() < 0.6 ? '#c8a27a' : '#ffffff', glow: false });
+        break;
+      case 'champagne': // the cork flies off (the neck points down, so it shoots into the ground and bounces up)
+        part(0, 0, { vx: rand(-200, 200), vy: -380, g: 600, drag: 0.99, life: 1.4, max: 1.4, size: 5, color: '#c8955a', glow: false });
+        for (let i = 0; i < 60; i++) part(0, 0, { vx: rand(-160, 160), vy: rand(-200, 20), g: -60, drag: 0.96, life: rand(0.8, 1.6), size: rand(2, 4), color: '#fff8e0' });
+        break;
+      case 'wc':
+        for (let i = 0; i < 70; i++) part(0, 0, { vx: rand(-200, 200), vy: rand(-220, 20), g: 400, drag: 0.97, life: rand(0.6, 1.2), size: rand(2, 5), color: Math.random() < 0.6 ? '#90e0ef' : '#ffffff', glow: false });
+        break;
+      case 'koe': case 'varken':
+        for (let i = 0; i < 50; i++) part(0, 0, { vx: rand(-180, 180), vy: rand(-60, 30), drag: 0.96, life: rand(1, 2), size: rand(8, 16), grow: 26, color: '#9acd32', glow: false });
+        sfx.fart();
+        break;
+      default:
+        smoke(40, 160, 14);
+    }
   }
 
   function useTurbo() {
@@ -700,6 +840,9 @@
     const pm = M.prestigeMult(save);
     $('shop-universe').textContent = save.prestige ? T('universe')(save.prestige + 1, pm) : '';
     show('prestige', M.canPrestige(save));
+    show('cheats', !!save.cheats);
+    document.querySelectorAll('[data-cheat=god]').forEach((b) => b.classList.toggle('on', !!save.god));
+    document.querySelectorAll('[data-cheat=fuel]').forEach((b) => b.classList.toggle('on', !!save.infFuel));
     $('btn-prestige').textContent = T('prestigeBtn')(save.prestige + 2, 1 + 0.5 * (save.prestige + 1));
     $('btn-tilt').classList.toggle('on', !!save.tilt);
 
@@ -1619,11 +1762,19 @@
     }
   }
 
+  // Vehicles that have a fuse; the rest get their own build-up before launch.
+  const HAS_FUSE = { fire: true, gas: true, cartoon: true, banaan: true, wortel: true };
   function drawIgnite() {
     const [x, gy] = w2s(0, 0);
-    const ry = gy - 62; // rocket sits on top of the bottle neck
-    drawRocket(cx, x, ry, Math.sin(time * 1.5) * 0.01, EVO(), 1, 0, TYPE(), 1);
+    const ry = gy - 62; // rocket sits on top of the launcher
+    const t = TYPE();
+    const lit = ign && (state === 'ignite' || state === 'countdown');
+    const k = lit ? clamp(ign.t / ign.dur, 0, 1) : 0;
+    const jig = lit && ['cola', 'champagne', 'gas', 'nasa', 'wc'].includes(t.id) ? rand(-1, 1) * (1 + k * 3) : 0;
+    drawRocket(cx, x + jig, ry, Math.sin(time * 1.5) * 0.01, EVO(), 1, 0, t, 1);
+    if (state === 'countdown') return;
     if (state !== 'ignite') return;
+    if (!HAS_FUSE[t.cat] && !HAS_FUSE[t.id]) { drawPrelaunch(t, x, ry, k); drawMeter(x, ry); return; }
     // fuse: a curl from the nozzle
     const fx = (u) => x + 4 + u * 20 + Math.sin(u * 9) * 4, fy = (u) => ry + 2 + u * 10;
     const burnt = ign ? clamp(ign.t / ign.dur, 0, 1) : 0;
@@ -1634,6 +1785,49 @@
     if (ign) {
       const u = 1 - burnt, sx = fx(u), sy = fy(u);
       for (let i = 0; i < 3; i++) part(cam.x + (sx - W / 2) / cam.ppm, cam.y + (H * cam.anchor - sy) / cam.ppm, { vx: rand(-60, 60), vy: rand(-90, 10), g: 140, life: rand(0.2, 0.5), size: rand(1.5, 2.5), color: Math.random() < 0.5 ? '#fff6c8' : '#ffb703' });
+    }
+    drawMeter(x, ry);
+  }
+
+  // world position of a screen point, for particles
+  function s2w(sx, sy) { return [cam.x + (sx - W / 2) / cam.ppm, cam.y + (H * cam.anchor - sy) / cam.ppm]; }
+
+  function drawPrelaunch(t, x, ry, k) {
+    if (!ign) return;
+    const s = EVO().size * 0.95;
+    if (t.id === 'cola') {
+      // a mint drops in from above, then the bottle starts to fizz
+      const fall = Math.min(1, ign.t / 0.55), topY = ry - 60 * s;
+      if (fall < 1) {
+        const my = lerp(ry - 240, topY, fall * fall);
+        cx.fillStyle = '#ffffff'; cx.beginPath(); cx.ellipse(x, my, 7, 4, ign.t * 6, 0, 7); cx.fill();
+        cx.strokeStyle = '#cfd8dc'; cx.lineWidth = 1.5; cx.stroke();
+      } else {
+        if (!ign.plop) { ign.plop = true; tone(500, 0.08, 'sine', 0.2, 900); }
+        const [wx, wy] = s2w(x, ry);
+        for (let i = 0; i < 2 + k * 4; i++) part(wx, wy, { vx: rand(-60, 60), vy: rand(-20, 60), g: 200, drag: 0.97, life: rand(0.3, 0.7), size: rand(2, 4), color: Math.random() < 0.6 ? '#c8a27a' : '#ffffff', glow: false });
+      }
+    } else if (t.id === 'champagne') {
+      const [wx, wy] = s2w(x, ry);
+      for (let i = 0; i < 1 + k * 3; i++) part(wx, wy, { vx: rand(-30, 30), vy: rand(-40, 20), g: -80, drag: 0.97, life: rand(0.4, 0.9), size: rand(1.5, 3), color: '#fff8e0' });
+    } else if (t.id === 'wc') {
+      const [wx, wy] = s2w(x, ry - 34 * s);
+      if (Math.random() < 0.5) part(wx, wy, { vx: rand(-40, 40), vy: rand(-80, -20), g: 300, life: 0.6, size: 2.5, color: '#90e0ef', glow: false });
+    } else if (t.id === 'koe' || t.id === 'varken') {
+      const [wx, wy] = s2w(x, ry);
+      if (Math.random() < 0.25 + k * 0.4) part(wx, wy, { vx: rand(-50, 50), vy: rand(0, 40), drag: 0.96, life: rand(0.8, 1.4), size: rand(5, 9), grow: 16, color: '#9acd32', glow: false });
+      if (Math.random() < 0.02 + k * 0.03) sfx.fart();
+    } else {
+      // machines: engines spooling up, steam on the pad (lots for the space rocket)
+      const [wx, wy] = s2w(x, ry);
+      const n = t.id === 'nasa' ? 3 : 1;
+      for (let i = 0; i < n; i++) part(wx, wy, { vx: rand(-120, 120) * (0.3 + k), vy: rand(-30, 10), drag: 0.97, life: rand(0.8, 1.6), size: rand(6, 12), grow: 18, color: '#d8dde6', glow: false });
+      if (k > 0.4) part(wx, wy, { vx: rand(-20, 20), vy: rand(10, 50), drag: 0.95, life: 0.3, size: rand(3, 6), color: t.flame === 'beam' ? '#7cfc00' : '#4cc9f0' });
+    }
+  }
+
+  function drawMeter(x, ry) {
+    if (ign) {
       // power meter
       const mx = Math.min(W - 46, x + 80), mh = Math.min(240, H * 0.35), my = ry - mh + 10;
       cx.fillStyle = 'rgba(0,0,0,.5)'; roundRect(mx - 4, my - 4, 34, mh + 8, 10); cx.fill();
@@ -1848,6 +2042,24 @@
     shake *= Math.exp(-8 * dt);
     env.flash = Math.max(0, env.flash - dt * 3);
 
+    if (state === 'countdown') {
+      cd.t += dt;
+      const n = 3 - Math.floor(cd.t);
+      if (n < cd.n) {
+        cd.n = n;
+        if (n > 0) { $('countdown').textContent = n; say(['', 'One', 'Two', 'Three'][n]); tone(880, 0.15, 'square', 0.15); vib(40); }
+        else { $('countdown').textContent = T('liftoff'); say('Liftoff!'); }
+      }
+      // steam builds up on the pad, and in the last second the engines light
+      for (let i = 0; i < 3; i++) part(rand(-1, 1), 0, { vx: rand(-200, 200) * cd.t / 3, vy: rand(-40, 0), drag: 0.97, life: rand(0.8, 1.6), size: rand(6, 12), grow: 18, color: '#d8dde6', glow: false });
+      if (cd.t > 2) part(0, 0, { vx: rand(-40, 40), vy: rand(10, 60), drag: 0.95, life: 0.4, size: rand(4, 9), color: '#ffb703' });
+      shake = Math.max(shake, cd.t * 2);
+      loopSet('thrust', 0.2 + cd.t * 0.15);
+      if (cd.t >= 3.6) { state = 'ignite'; liftoff(cd.boost, cd.label); }
+    }
+
+    if (quoteT > 0) { quoteT -= dt; if (quoteT <= 0) $('hud-quote').classList.remove('show'); }
+
     if (state === 'ignite' && ign && !ign.done) {
       ign.t += dt;
       if (ign.t >= ign.dur) launch(0.9, T('late'));
@@ -1858,6 +2070,14 @@
       if (keys.l || keys.r) target = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
       const n = 3;
       flightT += dt;
+      if (save.infFuel && !reachedEnd) rocket.fuel = Math.max(rocket.fuel, 0.5); // cheat
+      if (!saidMoon && rocket.y >= L.MOON_Y) {
+        saidMoon = true;
+        say("That's one small step for man, one giant leap for mankind.");
+        $('hud-quote').textContent = T('moonQuote');
+        $('hud-quote').classList.add('show');
+        quoteT = 6;
+      }
       if (flightT >= ghostNext && ghostRec.length < 4000) {
         ghostRec.push([Math.round(rocket.x * 10) / 10, Math.round(rocket.y * 10) / 10]);
         ghostNext += 0.1;
@@ -1958,7 +2178,7 @@
     cx.save();
     if (shake > 0.3) cx.translate(rand(-shake, shake), rand(-shake, shake));
     drawGround();
-    if (state === 'shop' || state === 'ignite') drawIgnite();
+    if (state === 'shop' || state === 'ignite' || state === 'countdown') drawIgnite();
     drawObjects();
     drawParticles();
     if (state === 'flight') drawGhost();
@@ -2092,14 +2312,57 @@
   $('btn-turbo').addEventListener('pointerdown', (e) => { e.stopPropagation(); useTurbo(); });
   $('btn-continue').addEventListener('click', goShop);
   $('btn-evolve').addEventListener('click', evolve);
-  $('btn-sound').addEventListener('click', () => { audioInit(); setSound(!save.sound); });
+  $('btn-sound').addEventListener('click', cycleSound);
   $('btn-reset').addEventListener('click', () => {
     if (window.confirm(T('resetAsk'))) { save = Object.assign(L.freshSave(), { sound: save.sound, tilt: save.tilt }); store(); goShop(); }
   });
 
+  // ---------- TEMPORARY cheat mode: tap the title 5 times. Remove before a store release. ----------
+  let titleTaps = 0, titleTapT = 0;
+  document.querySelector('#shop .title').addEventListener('click', () => {
+    const now = performance.now();
+    titleTaps = now - titleTapT < 600 ? titleTaps + 1 : 1;
+    titleTapT = now;
+    if (titleTaps >= 5) { titleTaps = 0; save.cheats = true; store(); toast(T('cheatsOn'), 1000); renderShop(); }
+  });
+  function cheat(kind) {
+    if (kind === 'coins') save.coins += 1e6;
+    if (kind === 'max') {
+      for (const u of L.UPGRADES) save.lv[u.id] = u.max;
+      save.evo = L.EVOS.length - 1;
+      save.types = L.TYPES.map((_, i) => i);
+      save.skins = M.SKINS.map((k) => k.id);
+      save.record = Math.max(save.record, 60000);
+      save.best = Math.max(save.best || 0, save.record);
+    }
+    if (kind === 'god') save.god = !save.god;
+    if (kind === 'fuel') save.infFuel = !save.infFuel;
+    if (kind === 'missions') for (const m of M.dailyMissions(save).missions) m.progress = Math.max(m.progress, m.target);
+    if (kind === 'end') save.ends = Math.max(1, save.ends || 0);
+    if (kind === 'hide') save.cheats = false;
+    store(); sfx.buy();
+    renderShop();
+  }
+  document.querySelectorAll('[data-cheat]').forEach((b) => b.addEventListener('click', () => cheat(b.dataset.cheat)));
+  $('btn-boom').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if (state === 'flight') { rocket.fuel = 0; rocket.turboT = 0; rocket.stagesLeft = []; explode(false); }
+  });
+
+  // splash: a tap starts the game and the music
+  function closeSplash() {
+    if ($('splash').classList.contains('gone')) return;
+    audioInit();
+    $('splash').classList.add('gone');
+    setTimeout(() => show('splash', false), 500);
+    musicStart();
+  }
+  $('splash').addEventListener('pointerdown', closeSplash);
+
   // Android back button: the wrapper asks us first.
   window.vpBack = function () {
     if (state === 'shop') return 'exit';
+    if (!$('splash').classList.contains('gone')) { closeSplash(); return 'ok'; }
     if (state === 'ignite' && !ign) { goShop(); return 'ok'; }
     if (state === 'result') { goShop(); return 'ok'; }
     return 'ok';
@@ -2108,18 +2371,20 @@
     if (!A.ctx) return;
     if (document.hidden) A.ctx.suspend(); else A.ctx.resume();
   });
+  // keyboard / tests: any key closes the splash too
+  window.addEventListener('keydown', closeSplash, { once: true });
 
   // test hook
   window.__vp = {
     get state() { return state; }, get rocket() { return rocket; }, get save() { return save; },
-    get combo() { return combo; }, get bonusT() { return bonusT; }, get weather() { return weather; },
+    get combo() { return combo; }, get music() { return music.on; }, closeSplash, get bonusT() { return bonusT; }, get weather() { return weather; },
     spawnAhead(type, extra, aheadPx) {
       objects.push(Object.assign({ type, x: rocket.x, y: rocket.y + (aheadPx || 40) / cam.ppm, r: 16, vxs: 0, v: 1, t: 0 }, extra || {}));
     },
   };
 
   setLang('en');
-  setSound(save.sound);
+  setSound(save.sound, save.music);
   goShop();
   requestAnimationFrame(frame);
 })();
