@@ -16,20 +16,18 @@ await page.waitForTimeout(500);
 if (await state() !== 'shop') throw new Error('did not start in the shop');
 await shot('1-shop');
 
-// language: English by default, even on a Dutch phone, and the button switches
+// language: always English, also on a Dutch phone, and no language button
 {
   const nlPage = await browser.newPage({ locale: 'nl-NL' });
   await nlPage.goto(BASE + '/index.html');
-  if (!(await nlPage.textContent('#btn-launch')).includes('LAUNCH')) throw new Error('Dutch phone did not start in English');
+  await nlPage.waitForTimeout(300);
+  const text = await nlPage.textContent('body');
+  for (const dutch of ['LANCEREN', 'Kruit', 'Achtertuin', 'Vuurwerk', 'Klassiek', 'Haal eerst', 'Kracht']) {
+    if (text.includes(dutch)) throw new Error('Dutch text in the shop: ' + dutch);
+  }
+  if (await nlPage.$('#btn-lang')) throw new Error('language button should be gone');
   await nlPage.close();
 }
-const txt = (sel) => page.textContent(sel);
-if (!(await txt('#btn-launch')).includes('LAUNCH')) throw new Error('English browser did not start in English');
-await page.click('#btn-lang');
-if (!(await txt('#btn-launch')).includes('LANCEREN')) throw new Error('language button did not switch to Dutch');
-if (!(await txt('#upgrades')).includes('Stuwkracht')) throw new Error('upgrades not translated');
-await page.click('#btn-lang');
-if (!(await txt('#upgrades')).includes('Thrust')) throw new Error('upgrades not switched back to English');
 
 for (let flight = 0; flight < 3; flight++) {
   await page.click('#btn-launch');

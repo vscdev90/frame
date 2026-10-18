@@ -1,4 +1,4 @@
-// Vuurpijl! — light the fuse, launch, steer, explode, upgrade, repeat.
+// Rocket! (Vuurpijl!) — light the fuse, launch, steer, explode, upgrade, repeat.
 (function () {
   'use strict';
 
@@ -56,15 +56,11 @@
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     } catch (e) { A.ctx = null; }
   }
-  // Language: English by default, Dutch when the player picks it.
+  // The game is always in English; the Dutch text in i18n.js is kept but unused.
   function setLang(lang) {
     I.set(lang);
-    save.lang = I.lang; store();
     document.documentElement.lang = I.lang;
-    document.title = I.lang === 'en' ? 'Rocket!' : 'Vuurpijl!';
     document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = T(el.dataset.i18n); });
-    $('btn-lang').textContent = I.lang === 'en' ? 'NL' : 'EN';
-    $('btn-lang').setAttribute('aria-label', T('lang'));
     $('btn-sound').setAttribute('aria-label', T('sound'));
     $('btn-reset').setAttribute('aria-label', T('reset'));
     $('btn-tilt').setAttribute('aria-label', T('tilt'));
@@ -1687,10 +1683,9 @@
   $('btn-turbo').addEventListener('pointerdown', (e) => { e.stopPropagation(); useTurbo(); });
   $('btn-continue').addEventListener('click', goShop);
   $('btn-evolve').addEventListener('click', evolve);
-  $('btn-lang').addEventListener('click', () => { save.langChosen = true; setLang(I.lang === 'en' ? 'nl' : 'en'); renderShop(); });
   $('btn-sound').addEventListener('click', () => { audioInit(); setSound(!save.sound); });
   $('btn-reset').addEventListener('click', () => {
-    if (window.confirm(T('resetAsk'))) { save = Object.assign(L.freshSave(), { lang: save.lang, langChosen: save.langChosen, sound: save.sound, tilt: save.tilt }); store(); goShop(); }
+    if (window.confirm(T('resetAsk'))) { save = Object.assign(L.freshSave(), { sound: save.sound, tilt: save.tilt }); store(); goShop(); }
   });
 
   // Android back button: the wrapper asks us first.
@@ -1708,8 +1703,7 @@
   // test hook
   window.__vp = { get state() { return state; }, get rocket() { return rocket; }, get save() { return save; } };
 
-  // English unless the player picked Dutch with the button
-  setLang(save.langChosen ? save.lang : 'en');
+  setLang('en');
   setSound(save.sound);
   goShop();
   requestAnimationFrame(frame);

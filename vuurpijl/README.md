@@ -24,7 +24,7 @@ Echte merknamen (NASA, F-16, F-35, Mentos, ACME, …) zitten er bewust niet in.
 **Sturen:** houd links of rechts van het scherm vast, of zet 📱 aan om te sturen door je telefoon te kantelen.
 Tik tijdens de knal om meteen naar de uitslag te gaan.
 
-Het spel is er in het **Nederlands en Engels** (*Rocket!*). Het start in het Engels; met de NL/EN-knop rechtsboven in de schuur wissel je naar Nederlands.
+Het spel (*Rocket!*) is altijd volledig in het Engels. De Nederlandse teksten staan nog in `i18n.js`, maar worden niet gebruikt.
 
 ## APK installeren
 
@@ -38,7 +38,7 @@ Nieuwe versies installeren over de oude heen; je voortgang blijft bewaard.
 | --- | --- |
 | `www/` | Het spel zelf (HTML5 canvas, geen libraries). Werkt ook gewoon in een browser. |
 | `www/logic.js` | Regels, upgrades, evoluties en de natuurkunde — los van de DOM. |
-| `www/i18n.js` | Alle teksten in het Nederlands en Engels. |
+| `www/i18n.js` | Alle teksten (het spel gebruikt alleen de Engelse). |
 | `android/` | Minimale Android-app: een schermvullende WebView die `www/` uit de APK laadt. |
 | `tests/balance.mjs` | Simuleert een speler en checkt dat de maan haalbaar is in een redelijk aantal vluchten. |
 | `tests/play.mjs` | Speelt het spel in een echte browser (aansteken, vliegen, upgraden). |

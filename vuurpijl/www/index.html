@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0b1230">
-  <title>Vuurpijl!</title>
+  <title>Rocket!</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,27 +23,26 @@
 
   <!-- lighting the fuse -->
   <div id="ignite" class="hidden">
-    <div class="ignite-hint" id="ignite-hint">Steek de lont aan!</div>
-    <button id="btn-light" class="big" data-i18n="lightBtn">🔥 AANSTEKEN</button>
+    <div class="ignite-hint" id="ignite-hint">Light the fuse!</div>
+    <button id="btn-light" class="big" data-i18n="lightBtn">🔥 LIGHT FUSE</button>
   </div>
 
   <!-- workshop / upgrade shop -->
   <div id="shop" class="panel hidden">
     <header class="shop-top">
-      <div class="title"><span data-i18n="title">VUURPIJL</span><span>!</span></div>
+      <div class="title"><span data-i18n="title">ROCKET</span><span>!</span></div>
       <div class="top-right">
-        <button id="btn-tilt" class="ghost lang" aria-label="Kantelen">📱</button>
-        <button id="btn-lang" class="ghost lang" aria-label="Taal">EN</button>
+        <button id="btn-tilt" class="ghost lang" aria-label="Tilt">📱</button>
         <div class="wallet"><span id="shop-coins">0</span> 🪙</div>
       </div>
     </header>
-    <div class="record"><span data-i18n="record">Record</span>: <b id="shop-record">0 m</b> · <span data-i18n="flights">Vluchten</span>: <b id="shop-flights">0</b></div>
+    <div class="record"><span data-i18n="record">Record</span>: <b id="shop-record">0 m</b> · <span data-i18n="flights">Flights</span>: <b id="shop-flights">0</b></div>
     <div class="progress"><div id="moon-progress"></div><span class="moon-ico" id="goal-ico">🌕</span></div>
 
     <section class="evo">
       <canvas id="evo-preview" width="120" height="160"></canvas>
       <div class="evo-info">
-        <div class="evo-label" data-i18n="yourRocket">Jouw pijl</div>
+        <div class="evo-label" data-i18n="yourRocket">Your rocket</div>
         <div class="evo-name" id="evo-name"></div>
         <div class="evo-mult" id="evo-mult"></div>
         <button id="btn-evolve" class="buy"></button>
@@ -51,12 +50,12 @@
       </div>
     </section>
 
-    <h3 class="sec" data-i18n="siteHead">Lanceerplek</h3>
+    <h3 class="sec" data-i18n="siteHead">Launch site</h3>
     <section class="chips" id="sites"></section>
-    <h3 class="sec" data-i18n="typeHead">Pijltype</h3>
-    <div class="sub" data-i18n="catFire">Vuurwerk</div>
+    <h3 class="sec" data-i18n="typeHead">What do you launch?</h3>
+    <div class="sub" data-i18n="catFire">Fireworks</div>
     <section class="chips" id="types-fire"></section>
-    <div class="sub" data-i18n="catFun">Gekke dingen</div>
+    <div class="sub" data-i18n="catFun">Crazy stuff</div>
     <section class="chips" id="types-fun"></section>
     <div class="sub" data-i18n="catMachine">Machines</div>
     <section class="chips" id="types-machine"></section>
@@ -64,22 +63,22 @@
     <section class="upgrades" id="upgrades"></section>
 
     <footer class="shop-bottom">
-      <button id="btn-sound" class="ghost" aria-label="Geluid">🔊</button>
-      <button id="btn-launch" class="big" data-i18n="launchBtn">🚀 LANCEREN</button>
-      <button id="btn-reset" class="ghost" aria-label="Opnieuw beginnen">↺</button>
+      <button id="btn-sound" class="ghost" aria-label="Sound">🔊</button>
+      <button id="btn-launch" class="big" data-i18n="launchBtn">🚀 LAUNCH</button>
+      <button id="btn-reset" class="ghost" aria-label="Start over">↺</button>
     </footer>
   </div>
 
   <!-- flight result -->
   <div id="result" class="panel card hidden">
-    <div class="result-title" id="res-title">KNAL!</div>
-    <div class="res-line"><span data-i18n="resHeight">Hoogte</span><b id="res-height"></b></div>
-    <div class="res-line"><span data-i18n="resCoins">Munten gepakt</span><b id="res-coins"></b></div>
-    <div class="res-line"><span data-i18n="resBonus">Knalbonus</span><b id="res-bonus"></b></div>
-    <div class="res-line" id="res-zone-line"><span data-i18n="resZone">Nieuwe zone</span><b id="res-zone"></b></div>
-    <div class="res-total"><span data-i18n="resTotal">Totaal</span><b id="res-total"></b></div>
-    <div class="res-record hidden" id="res-record" data-i18n="newRecord">🏆 NIEUW RECORD!</div>
-    <button id="btn-continue" class="big" data-i18n="toShed">🛠️ NAAR DE SCHUUR</button>
+    <div class="result-title" id="res-title">BANG!</div>
+    <div class="res-line"><span data-i18n="resHeight">Height</span><b id="res-height"></b></div>
+    <div class="res-line"><span data-i18n="resCoins">Coins collected</span><b id="res-coins"></b></div>
+    <div class="res-line"><span data-i18n="resBonus">Bang bonus</span><b id="res-bonus"></b></div>
+    <div class="res-line" id="res-zone-line"><span data-i18n="resZone">New zone</span><b id="res-zone"></b></div>
+    <div class="res-total"><span data-i18n="resTotal">Total</span><b id="res-total"></b></div>
+    <div class="res-record hidden" id="res-record" data-i18n="newRecord">🏆 NEW RECORD!</div>
+    <button id="btn-continue" class="big" data-i18n="toShed">🛠️ TO THE SHED</button>
   </div>
 
   <div id="toast"></div>
