@@ -19,9 +19,12 @@
       toMoon: 'Op naar de maan!', reachFirst: (m) => 'Haal eerst ' + m + ' m hoogte',
       evolved: 'EVOLUTIE! ', newZone: '✨ NIEUW: ', resetAsk: 'Alle voortgang wissen en opnieuw beginnen?',
       locale: 'nl-NL',
-      siteHead: 'Lanceerplek', typeHead: 'Pijltype', upgHead: 'Upgrades',
+      siteHead: 'Lanceerplek', typeHead: 'Wat lanceer je?', upgHead: 'Upgrades',
       stage2: 'TRAP 2! 🔥', steerHint: '◀ Houd links of rechts vast om te sturen ▶',
       tilt: 'Kantelen', tiltOn: '📱 Sturen door te kantelen: AAN', tiltOff: '📱 Kantelen: UIT', tap: 'Tik om door te gaan',
+      catFire: 'Vuurwerk', catFun: 'Gekke dingen', catMachine: 'Machines',
+      stealth: '👻 GEMIST!', moo: 'BOEEE!', oink: 'KNOR!', kaboom: 'KA-BOEM!', eject: '🪂 Schietstoel!',
+      endTitle: 'EINDE VAN HET HEELAL! 🕳️', endToast: '🕳️ HET ZWARTE GAT! 🕳️', nextGoal: 'Volgend doel',
     },
     en: {
       title: 'ROCKET', record: 'Record', flights: 'Flights', yourRocket: 'Your rocket',
@@ -38,14 +41,17 @@
       toMoon: 'To the moon!', reachFirst: (m) => 'Reach ' + m + ' m first',
       evolved: 'EVOLVED! ', newZone: '✨ NEW: ', resetAsk: 'Erase all progress and start over?',
       locale: 'en-US',
-      siteHead: 'Launch site', typeHead: 'Rocket type', upgHead: 'Upgrades',
+      siteHead: 'Launch site', typeHead: 'What do you launch?', upgHead: 'Upgrades',
       stage2: 'STAGE 2! 🔥', steerHint: '◀ Hold left or right to steer ▶',
       tilt: 'Tilt', tiltOn: '📱 Tilt steering: ON', tiltOff: '📱 Tilt: OFF', tap: 'Tap to continue',
+      catFire: 'Fireworks', catFun: 'Crazy stuff', catMachine: 'Machines',
+      stealth: '👻 MISSED!', moo: 'MOOO!', oink: 'OINK!', kaboom: 'KA-BOOM!', eject: '🪂 Eject!',
+      endTitle: 'END OF THE UNIVERSE! 🕳️', endToast: '🕳️ THE BLACK HOLE! 🕳️', nextGoal: 'Next goal',
     },
   };
 
-  const EN_ZONES = ['Backyard', 'Above the roofs', 'The clouds', 'Flight path', 'Stratosphere', 'Outer space', 'Satellite orbit', 'THE MOON'];
-  const EN_EVOS = ['Sparkler', 'Banger', 'Whistler', 'Golden Comet', 'Double Dragon', 'Moon Rocket'];
+  const EN_ZONES = ['Backyard', 'Above the roofs', 'The clouds', 'Flight path', 'Stratosphere', 'Outer space', 'Satellite orbit', 'THE MOON', 'MARS', 'Asteroid belt', 'JUPITER', 'SATURN', 'NEPTUNE', 'THE BLACK HOLE'];
+  const EN_EVOS = ['Sparkler', 'Banger', 'Whistler', 'Golden Comet', 'Double Dragon', 'Moon Rocket', 'Mars Arrow', 'Star Hunter', 'Milky Way Arrow'];
   const EN_UPGRADES = {
     kruit:   ['Powder',     'Burns longer'],
     stuw:    ['Thrust',     'Pushes harder'],
@@ -65,6 +71,20 @@
     ['Long Burner',  'Weaker, burns much longer'],
     ['Gold Digger',  'Coins ×1.6 and pulls them in'],
     ['Two-Stager',   'Second stage ignites mid-air'],
+    ['Soda + Candy',   'Huge spray, but very short'],
+    ['Flying Toilet',  'Flush and go! Coins ×1.2'],
+    ['Farting Cow',    'Flies on farts. Moo!'],
+    ['Farting Pig',    'Even more farts, coins ×1.25'],
+    ['Gas Bottle',     'Super strong, spins all over'],
+    ['Giant Banana',   'Curves to the right, coins ×1.5'],
+    ['Giant Carrot',   'Super streamlined'],
+    ['Champagne',      'Pop! Always a good start'],
+    ['Cartoon Rocket', 'KA-BOOM! +1 turbo'],
+    ['Fighter Jet',    'Afterburner: fast and long'],
+    ['Hover Jet',      'Takes off straight up, +2 turbo'],
+    ['Stealth Jet (lift fan)', 'Obstacles often miss you'],
+    ['Retro UFO',      'Less gravity, steers great'],
+    ['Space Rocket',   'Three stages to the stars'],
   ];
 
   const I = {

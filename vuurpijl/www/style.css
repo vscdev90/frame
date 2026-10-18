@@ -139,3 +139,4 @@ button.ghost.on { background: rgba(255,210,63,.35); }
 
 #hud-zone.hint { font-size: 1.1rem; }
 #btn-turbo { left: 0; right: 0; margin: 0 auto; width: fit-content; }
+.sub { margin: 8px 0 4px; font-size: .78rem; font-weight: 800; color: #ffd23f; }
