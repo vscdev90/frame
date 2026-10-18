@@ -16,7 +16,13 @@ await page.waitForTimeout(500);
 if (await state() !== 'shop') throw new Error('did not start in the shop');
 await shot('1-shop');
 
-// language: an English browser starts in English, and the button switches
+// language: English by default, even on a Dutch phone, and the button switches
+{
+  const nlPage = await browser.newPage({ locale: 'nl-NL' });
+  await nlPage.goto(BASE + '/index.html');
+  if (!(await nlPage.textContent('#btn-launch')).includes('LAUNCH')) throw new Error('Dutch phone did not start in English');
+  await nlPage.close();
+}
 const txt = (sel) => page.textContent(sel);
 if (!(await txt('#btn-launch')).includes('LAUNCH')) throw new Error('English browser did not start in English');
 await page.click('#btn-lang');

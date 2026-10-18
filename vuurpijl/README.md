@@ -20,7 +20,7 @@ Onderweg vlieg je door onweer in de wolken, noorderlicht in de stratosfeer en la
 **Sturen:** houd links of rechts van het scherm vast, of zet 📱 aan om te sturen door je telefoon te kantelen.
 Tik tijdens de knal om meteen naar de uitslag te gaan.
 
-Het spel is er in het **Nederlands en Engels** (*Rocket!*). Het start in de taal van je telefoon; met de NL/EN-knop rechtsboven in de schuur wissel je.
+Het spel is er in het **Nederlands en Engels** (*Rocket!*). Het start in het Engels; met de NL/EN-knop rechtsboven in de schuur wissel je naar Nederlands.
 
 ## APK installeren
 

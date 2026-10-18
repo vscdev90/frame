@@ -67,16 +67,10 @@
     ['Two-Stager',   'Second stage ignites mid-air'],
   ];
 
-  function pickDefault() {
-    const l = ((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase();
-    return l.startsWith('nl') ? 'nl' : 'en';
-  }
-
   const I = {
     lang: 'nl',
     set(lang) { I.lang = TEXT[lang] ? lang : 'en'; },
     t(key) { return TEXT[I.lang][key]; },
-    pickDefault,
     zone(i, L) { return I.lang === 'en' ? EN_ZONES[i] : L.ZONES[i].name; },
     evo(i, L) { return I.lang === 'en' ? EN_EVOS[i] : L.EVOS[i].name; },
     site(i, L) { return I.lang === 'en' ? EN_SITES[i] : L.SITES[i].name; },
