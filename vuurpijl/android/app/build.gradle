@@ -2,42 +2,77 @@ plugins {
     id 'com.android.application'
 }
 
+// Values that only exist on the build machine (GitHub secrets), never in git.
+def env = { String name, String fallback -> System.getenv(name) ?: fallback }
+// Google's official AdMob test IDs: safe to click, they never pay.
+def TEST_ADMOB_APP = 'ca-app-pub-3940256099942544~3347511713'
+def TEST_REWARDED = 'ca-app-pub-3940256099942544/5224354917'
+
 android {
     namespace 'nl.vuurpijl.game'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
-        applicationId 'nl.vuurpijl.game'
         minSdk 26
-        targetSdk 35
+        targetSdk 36
         versionCode = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
         versionName = "1.0.${System.getenv('GITHUB_RUN_NUMBER') ?: '0'}"
     }
 
-    // The game itself is the web build next door; one source for browser and APK.
+    buildFeatures {
+        buildConfig true
+    }
+
+    // The game itself is the web build next door; one source for browser and app.
     sourceSets {
         main.assets.srcDirs = ['../../www']
     }
 
-    // A fixed key so every new APK installs over the previous one and keeps
-    // your progress. It is a hobby key, committed on purpose: do not reuse it
-    // for anything published to the Play Store.
     signingConfigs {
+        // A fixed key so every hobby APK installs over the previous one and keeps
+        // your progress. It is committed on purpose: never use it for the Play Store.
         hobby {
             storeFile file('vuurpijl.keystore')
             storePassword 'vuurpijl'
             keyAlias 'vuurpijl'
             keyPassword 'vuurpijl'
         }
+        // The Play Store upload key: only available when the build machine has it.
+        if (System.getenv('UPLOAD_KEYSTORE')) {
+            upload {
+                storeFile file(System.getenv('UPLOAD_KEYSTORE'))
+                storePassword env('UPLOAD_KEYSTORE_PASSWORD', '')
+                keyAlias env('UPLOAD_KEY_ALIAS', 'upload')
+                keyPassword env('UPLOAD_KEY_PASSWORD', env('UPLOAD_KEYSTORE_PASSWORD', ''))
+            }
+        }
+    }
+
+    // hobby: the APK you sideload to test (cheats allowed, test ads only).
+    // play:  the bundle for Google Play (no cheats, your real AdMob IDs).
+    flavorDimensions 'store'
+    productFlavors {
+        hobby {
+            dimension 'store'
+            applicationId 'nl.vuurpijl.game'
+            signingConfig signingConfigs.hobby
+            buildConfigField 'boolean', 'CHEATS', 'true'
+            buildConfigField 'String', 'REWARDED_ID', "\"${TEST_REWARDED}\""
+            manifestPlaceholders = [admobAppId: TEST_ADMOB_APP]
+        }
+        play {
+            dimension 'store'
+            applicationId 'io.github.vscdev90.rocket'
+            if (System.getenv('UPLOAD_KEYSTORE')) signingConfig signingConfigs.upload
+            buildConfigField 'boolean', 'CHEATS', 'false'
+            buildConfigField 'String', 'REWARDED_ID', "\"${env('ADMOB_REWARDED_ID', TEST_REWARDED)}\""
+            manifestPlaceholders = [admobAppId: env('ADMOB_APP_ID', TEST_ADMOB_APP)]
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.hobby
-        }
-        debug {
-            signingConfig signingConfigs.hobby
         }
     }
 
@@ -50,4 +85,7 @@ android {
 dependencies {
     implementation 'androidx.webkit:webkit:1.12.1'
     implementation 'androidx.core:core:1.13.1'
+    // rewarded videos, and the consent form Google requires in Europe
+    implementation 'com.google.android.gms:play-services-ads:23.6.0'
+    implementation 'com.google.android.ump:user-messaging-platform:3.1.0'
 }

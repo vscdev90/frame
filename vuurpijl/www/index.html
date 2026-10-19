@@ -50,7 +50,13 @@
     <h3 class="sec" data-i18n="missionsHead">Daily missions</h3>
     <section id="missions"></section>
 
-    <!-- TEMPORARY cheat mode: tap the title 5 times. Remove before a store release. -->
+    <!-- rewarded video (Android app only): a free boost for the next flight -->
+    <section id="ad-boost" class="mission adcard hidden">
+      <div class="mt" id="ad-boost-text"></div>
+      <button id="btn-ad-boost" class="buy">📺 FREE</button>
+    </section>
+
+    <!-- Cheat mode: tap the title 5 times. Only in the hobby/test build, never in the Play Store build. -->
     <section id="cheats" class="cheats hidden">
       <div class="p-title">🛠️ Cheat mode</div>
       <div class="cheat-grid">
@@ -114,6 +120,7 @@
     <div class="res-record hidden" id="res-record" data-i18n="newRecord">🏆 NEW RECORD!</div>
     <div class="res-buttons">
       <button id="btn-share" class="ghost wide" data-i18n="share">📤 SHARE</button>
+      <button id="btn-ad-double" class="buy hidden" data-i18n="adDouble">📺 2× COINS</button>
       <button id="btn-continue" class="big" data-i18n="toShed">🛠️ TO THE SHED</button>
     </div>
   </div>
@@ -131,6 +138,7 @@
     <section class="starmap" id="starmap"></section>
     <h3 class="sec" data-i18n="achHead">Achievements</h3>
     <section class="badges" id="badges"></section>
+    <button id="btn-privacy" class="ghost wide privacy hidden" data-i18n="privacy">Privacy &amp; ad settings</button>
   </div>
 
   <div id="countdown" class="hidden"></div>

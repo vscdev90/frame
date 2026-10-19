@@ -12,6 +12,7 @@
 
     <application
         android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/GameTheme">
@@ -25,9 +26,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- AdMob app ID; the build fills it in (Google's test ID unless a real one is set) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${admobAppId}" />
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="nl.vuurpijl.game.files"
+            android:authorities="${applicationId}.files"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

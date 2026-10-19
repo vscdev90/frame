@@ -28,7 +28,7 @@ button.ghost { background: rgba(255,255,255,.12); width: 52px; height: 52px; fon
 button.ghost.lang { font-size: .95rem; font-weight: 900; width: 44px; height: 40px; }
 
 /* HUD */
-#hud { position: fixed; inset: 0; pointer-events: none; padding: max(12px, env(safe-area-inset-top)) 14px 0; }
+#hud { position: fixed; inset: 0; pointer-events: none; padding: max(12px, env(safe-area-inset-top), calc(var(--inset-top, 0px) + 4px)) 14px 0; }
 .hud-row { display: flex; justify-content: space-between; gap: 8px; }
 .pill {
   background: rgba(0,0,0,.45); border-radius: 999px; padding: 6px 14px;
@@ -61,7 +61,7 @@ button.ghost.lang { font-size: .95rem; font-weight: 900; width: 44px; height: 40
 .panel {
   position: fixed; inset: 0; overflow-y: auto; touch-action: pan-y;
   background: linear-gradient(rgba(11,18,48,.92), rgba(30,16,50,.96));
-  padding: max(14px, env(safe-area-inset-top)) 16px 120px;
+  padding: max(14px, env(safe-area-inset-top), calc(var(--inset-top, 0px) + 6px)) 16px 120px;
 }
 .shop-top { display: flex; justify-content: space-between; align-items: center; }
 .title { font-size: 2rem; font-weight: 900; letter-spacing: .06em; color: #ffd23f; text-shadow: 0 3px 0 #b34d00; }
@@ -120,7 +120,8 @@ button.buy.max { background: rgba(255,210,63,.25); color: #ffd23f; }
 
 #toast {
   position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0;
-  font-size: 2rem; font-weight: 900; text-align: center; pointer-events: none; white-space: nowrap;
+  font-size: 2rem; font-weight: 900; text-align: center; pointer-events: none;
+  width: max-content; max-width: calc(100vw - 32px); line-height: 1.15;
   text-shadow: 0 3px 0 #000, 0 0 18px rgba(255,200,0,.8); transition: opacity .2s, transform .2s;
 }
 #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -260,3 +261,8 @@ button.buy:disabled { background: rgba(255,255,255,.12); border-color: transpare
 .panel { background: radial-gradient(circle at 50% -10%, rgba(119,60,200,.45), transparent 55%), linear-gradient(rgba(11,18,48,.94), rgba(30,16,50,.97)); }
 .pill { border: 1px solid rgba(255,255,255,.12); box-shadow: 0 4px 12px rgba(0,0,0,.35); }
 .title, .splash-title { text-shadow: 0 4px 0 #b34d00, 0 8px 18px rgba(0,0,0,.5); }
+
+/* rewarded videos */
+.adcard { background: linear-gradient(135deg, rgba(76,201,240,.18), rgba(199,125,255,.18)); }
+#btn-ad-double { padding: 12px 14px; font-size: 1rem; }
+button.privacy { display: block; margin: 18px auto 0; font-size: .85rem; height: 40px; opacity: .8; }

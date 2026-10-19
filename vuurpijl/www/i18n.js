@@ -68,6 +68,9 @@
       shareText: (h, where) => 'I flew ' + h + ' m to ' + where + ' in Rocket! Can you beat me? 🚀',
       shareTitle: 'I reached', shareBeat: 'Can you beat me?', best: 'BEST',
       liftoff: 'LIFTOFF!', yes: 'YES', no: 'Cancel',
+      adDouble: '📺 2× COINS', adThanks: '💰 Coins doubled!', adFail: 'No video right now, try again later',
+      adBoost: '📺 Watch a short video: +2 turbo on your next flight', boostReady: '⚡ +2 turbo ready for your next flight!',
+      boostWait: (m) => '📺 Next free boost in ' + m + ' min', privacy: 'Privacy & ad settings',
       cheatsOn: '🛠️ Cheat mode', soundAll: 'Sound and music', soundFx: 'Sound effects only', soundOff: 'Sound off',
     },
   };

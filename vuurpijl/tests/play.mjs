@@ -247,6 +247,57 @@ await page.click('#btn-reset');
 await page.click('#modal-no');
 if ((await page.evaluate(() => window.__vp.save.prestige)) !== 1) throw new Error('cancel should keep the save');
 await shot('16-universe');
+// The Play Store app: no cheats, and rewarded videos through the Android bridge (mocked here).
+{
+  const app = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  app.on('pageerror', (e) => errors.push('app pageerror: ' + e.message));
+  app.on('dialog', (d) => { errors.push('native dialog used: ' + d.message()); d.dismiss(); });
+  await app.addInitScript(() => {
+    window.__ads = 0;
+    window.AndroidBridge = {
+      cheatsAllowed: () => false, version: () => '1.0.99', adReady: () => true,
+      showRewarded: (tag) => { window.__ads++; setTimeout(() => window.vpAdDone(tag, true), 50); },
+      privacyOptionsRequired: () => true, showPrivacyOptions: () => {}, vibrate: () => {},
+    };
+    localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ coins: 5000, record: 300, flights: 5, cheats: true, god: true }));
+  });
+  await app.goto(BASE + '/index.html');
+  await app.click('#splash');
+  await app.waitForTimeout(500);
+  if (await app.isVisible('#cheats')) throw new Error('cheats visible in the Play build');
+  for (let i = 0; i < 5; i++) await app.click('#shop .title');
+  if (await app.isVisible('#cheats')) throw new Error('title taps opened cheats in the Play build');
+  if (await app.evaluate(() => window.__vp.save.god)) throw new Error('god mode survived in the Play build');
+  // free boost: a video gives +2 turbo on the next flight
+  await app.waitForTimeout(1200);
+  await app.click('#btn-ad-boost');
+  await app.waitForTimeout(300);
+  if ((await app.evaluate(() => window.__vp.save.bonusTurbo)) !== 2) throw new Error('boost video did not give turbo');
+  await app.screenshot({ path: SHOTS ? SHOTS + '/23-ad-boost.png' : '/dev/null' });
+  await app.click('#btn-launch'); await app.click('#btn-light'); await app.waitForTimeout(500);
+  await app.mouse.click(195, 400);
+  if ((await app.evaluate(() => window.__vp.rocket.turboLeft)) < 2) throw new Error('boost turbo not applied');
+  for (let k = 0; k < 300 && (await app.evaluate(() => window.__vp.state)) !== 'result'; k++) {
+    if ((await app.evaluate(() => window.__vp.state)) === 'boom') await app.mouse.click(195, 400);
+    await app.waitForTimeout(150);
+  }
+  // double the coins with a video
+  await app.waitForTimeout(1300);
+  const c1 = await app.evaluate(() => window.__vp.save.coins);
+  await app.click('#btn-ad-double');
+  await app.waitForTimeout(300);
+  const c2 = await app.evaluate(() => window.__vp.save.coins);
+  if (!(c2 > c1)) throw new Error('double-coins video paid nothing');
+  if (await app.isVisible('#btn-ad-double')) throw new Error('double button should be used up');
+  await app.screenshot({ path: SHOTS ? SHOTS + '/24-ad-double.png' : '/dev/null' });
+  await app.click('#btn-continue');
+  await app.click('#btn-collection');
+  if (!(await app.isVisible('#btn-privacy'))) throw new Error('privacy options button missing');
+  if (!(await app.textContent('#col-stats')).includes('v1.0.99')) throw new Error('version missing');
+  if ((await app.evaluate(() => window.__ads)) !== 2) throw new Error('expected two videos');
+  await app.close();
+}
+
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
 console.log('play test ok');

@@ -21,6 +21,8 @@
 
   // ---------- save ----------
   const SAVE_KEY = 'vuurpijl-save-v1';
+  // The Play Store build has no cheat mode; the hobby build and the browser do.
+  const CHEATS_OK = !(window.AndroidBridge && window.AndroidBridge.cheatsAllowed) || window.AndroidBridge.cheatsAllowed();
   let save = L.freshSave();
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -35,6 +37,7 @@
       save.best = Math.max(save.best || 0, save.record);
     }
   } catch (e) { /* private mode: play without saving */ }
+  if (!CHEATS_OK) { save.cheats = false; save.god = false; save.infFuel = false; }
   function store() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
 
   // ---------- haptics ----------
@@ -56,8 +59,17 @@
       A.master.gain.value = save.sound ? 0.6 : 0;
       A.master.connect(A.ctx.destination);
       A.music = A.ctx.createGain();
-      A.music.gain.value = save.music === false ? 0 : 0.45;
+      A.music.gain.value = save.music === false ? 0 : 0.5;
       A.music.connect(A.master);
+      // a soft echo for the plucks and bells, and a warm filter for the pads
+      A.echo = A.ctx.createDelay(1);
+      A.echo.delayTime.value = 0.5;
+      const fb = A.ctx.createGain(), wet = A.ctx.createGain(), tone = A.ctx.createBiquadFilter();
+      fb.gain.value = 0.38; wet.gain.value = 0.32; tone.type = 'lowpass'; tone.frequency.value = 2600;
+      A.echo.connect(tone); tone.connect(fb); fb.connect(A.echo); tone.connect(wet); wet.connect(A.music);
+      A.pad = A.ctx.createBiquadFilter();
+      A.pad.type = 'lowpass'; A.pad.frequency.value = 1400;
+      A.pad.connect(A.music);
       const len = A.ctx.sampleRate * 2;
       A.noise = A.ctx.createBuffer(1, len, A.ctx.sampleRate);
       const d = A.noise.getChannelData(0);
@@ -77,7 +89,7 @@
   function setSound(on, music) {
     save.sound = on; save.music = on && music !== false; store();
     if (A.master) A.master.gain.value = on ? 0.6 : 0;
-    if (A.music) A.music.gain.value = save.music ? 0.45 : 0;
+    if (A.music) A.music.gain.value = save.music ? 0.5 : 0;
     $('btn-sound').textContent = !on ? '🔇' : save.music ? '🔊' : '🔈';
     $('btn-sound').setAttribute('aria-label', T(!on ? 'soundOff' : save.music ? 'soundAll' : 'soundFx'));
   }
@@ -89,46 +101,72 @@
     if (save.music) musicStart(); else musicStop();
   }
 
-  // ---------- menu music: a little chiptune, scheduled ahead on the audio clock ----------
+  // ---------- menu music: a calm 'night sky' loop, scheduled ahead on the audio clock ----------
+  // Four chords (Cmaj7, Am7, Fmaj7, G6), soft pads, an echoing pluck arpeggio,
+  // a round bass, a gentle kick and now and then a bell melody.
   const NOTE = (n) => {
     if (n === '-') return 0;
     const i = { C: -9, D: -7, E: -5, F: -4, G: -2, A: 0, B: 2 }[n[0]] + (n[1] === '#' ? 1 : 0);
     return 440 * Math.pow(2, (i + (parseInt(n.slice(-1), 10) - 4) * 12) / 12);
   };
-  const MELODY = ('E5 G5 C6 G5 A5 G5 E5 G5 F5 A5 C6 A5 G5 E5 D5 C5 ' +
-                  'E5 G5 C6 D6 E6 D6 C6 A5 G5 E5 D5 E5 C5 - G4 -').split(' ');
-  const BASS = ['C3', 'A2', 'F2', 'G2', 'C3', 'A2', 'G2', 'C3'];
+  const CHORDS = [['C4', 'E4', 'G4', 'B4'], ['A3', 'C4', 'E4', 'G4'], ['F3', 'A3', 'C4', 'E4'], ['G3', 'B3', 'D4', 'E4']];
+  const ROOTS = ['C2', 'A1', 'F1', 'G1'];
+  const ARP = [0, 1, 2, 3, 2, 1, 2, 3];
+  const BELL = ('E6 - - G5 - - D6 - ' + 'C6 - - E5 - - - - ' + 'A5 - - C6 - - E6 - ' + 'D6 - - B5 - - G5 -').split(' ');
+  const STEP = 0.32; // one eighth note (about 94 BPM)
   const music = { on: false, timer: null, step: 0, next: 0, loop: 0 };
-  function note(f, t, dur, type, vol) {
+  function note(f, t, dur, type, vol, o) {
     if (!f) return;
-    const o = A.ctx.createOscillator(), g = A.ctx.createGain();
-    o.type = type; o.frequency.value = f;
-    g.gain.setValueAtTime(vol, t);
+    o = o || {};
+    const osc = A.ctx.createOscillator(), g = A.ctx.createGain();
+    osc.type = type; osc.frequency.value = f;
+    if (o.detune) osc.detune.value = o.detune;
+    const atk = o.attack || 0.005;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + atk);
+    if (o.hold) g.gain.setValueAtTime(vol, t + atk + o.hold);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(A.music);
-    o.start(t); o.stop(t + dur + 0.02);
+    osc.connect(g);
+    g.connect(o.bus || A.music);
+    if (o.echo) g.connect(A.echo);
+    osc.start(t); osc.stop(t + dur + 0.05);
   }
   function musicStep(i, t) {
-    const lead = NOTE(MELODY[i]) * (music.loop % 2 ? 2 : 1); // every other loop an octave up
-    note(lead, t, 0.22, 'square', 0.05);
-    const root = NOTE(BASS[Math.floor(i / 4)]);
-    if (i % 4 === 0) note(root, t, 0.4, 'triangle', 0.16);
-    if (i % 4 === 2) note(root * 1.5, t, 0.3, 'triangle', 0.12);
-    if (i % 2 === 1) {
+    const bar = Math.floor(i / 8), beat = i % 8, chord = CHORDS[bar];
+    if (beat === 0) {
+      // pad: every chord tone twice, slightly detuned, swelling in slowly
+      for (const n of chord) {
+        note(NOTE(n), t, STEP * 8 + 0.6, 'sine', 0.035, { attack: 0.7, hold: STEP * 6, detune: -6, bus: A.pad });
+        note(NOTE(n), t, STEP * 8 + 0.6, 'triangle', 0.02, { attack: 0.7, hold: STEP * 6, detune: 6, bus: A.pad });
+      }
+    }
+    // pluck arpeggio an octave up, into the echo
+    note(NOTE(chord[ARP[beat]]) * 2, t, 0.45, 'triangle', 0.05, { echo: true });
+    // bass on the half notes
+    if (beat === 0 || beat === 4) note(NOTE(ROOTS[bar]) * 2, t, STEP * 3.5, 'sine', 0.16, { attack: 0.02 });
+    // soft kick
+    if (beat === 0 || beat === 4) note(100, t, 0.28, 'sine', 0.16);
+    // quiet shaker on the off-beats
+    if (beat % 2 === 1) {
       const s = A.ctx.createBufferSource(), f = A.ctx.createBiquadFilter(), g = A.ctx.createGain();
-      s.buffer = A.noise; f.type = 'highpass'; f.frequency.value = 7000;
-      g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      s.connect(f); f.connect(g); g.connect(A.music); s.start(t, Math.random()); s.stop(t + 0.06);
+      s.buffer = A.noise; f.type = 'highpass'; f.frequency.value = 8000;
+      g.gain.setValueAtTime(0.018, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+      s.connect(f); f.connect(g); g.connect(A.music); s.start(t, Math.random()); s.stop(t + 0.08);
+    }
+    // every other loop a bell melody on top
+    if (music.loop % 2 === 1 && BELL[i] !== '-') {
+      note(NOTE(BELL[i]), t, 1.4, 'sine', 0.06, { echo: true });
+      note(NOTE(BELL[i]) * 2, t, 0.6, 'sine', 0.015, { echo: true });
     }
   }
   function musicStart() {
     if (!A.ctx || music.on || !save.sound || !save.music) return;
     music.on = true; music.step = 0; music.next = A.ctx.currentTime + 0.1;
     music.timer = setInterval(() => {
-      while (music.next < A.ctx.currentTime + 0.25) {
+      while (music.next < A.ctx.currentTime + 0.3) {
         musicStep(music.step, music.next);
-        music.next += 0.24;
-        music.step = (music.step + 1) % MELODY.length;
+        music.next += STEP;
+        music.step = (music.step + 1) % 32;
         if (!music.step) music.loop++;
       }
     }, 60);
@@ -278,7 +316,7 @@
 
   // ---------- particles ----------
   function part(ax, ay, o) {
-    if (parts.length > 1400) parts.shift();
+    if (parts.length >= 1400) parts.splice(0, 200);
     parts.push(Object.assign({ ax, ay, ox: 0, oy: 0, vx: 0, vy: 0, g: 0, drag: 1, life: 1, max: 1, size: 3, color: '#fff', glow: true, grow: 0 }, o));
   }
   function floatText(ax, ay, text, color) {
@@ -678,7 +716,9 @@
     show('hud', true);
     show('btn-boom', !!save.infFuel);
     $('hud-wx').textContent = weather.id === 'clear' ? '' : M.WEATHER[weather.id].icon + ' ' + M.WEATHER[weather.id].name;
-    $('hud-combo').textContent = '';
+    hudCache = {};
+    setText('hud-combo', '');
+    if (save.bonusTurbo) { rocket.turboLeft += save.bonusTurbo; save.bonusTurbo = 0; store(); }
     updateTurboBtn();
     toast(label);
     if (boost >= 1.3) { sfx.perfect(); vib(50); }
@@ -813,6 +853,8 @@
     $('res-zone').textContent = zoneName + ' +' + fmt(zoneBonus);
     show('res-record', newRecord);
     countUp('res-total', total, '+', ' 🪙', 0.5);
+    lastTotal = total; doubled = false;
+    show('btn-ad-double', false);
     show('result', true);
     if (newRecord || zoneBonus) { sfx.perfect(); vib(60); }
   }
@@ -830,6 +872,58 @@
     };
     requestAnimationFrame(stepFn);
   }
+
+  // ---------- rewarded videos (Android app only; the browser version has none) ----------
+  // The app shows a video and answers through window.vpAdDone(tag, earned).
+  let lastTotal = 0, doubled = false;
+  const BOOST_COOLDOWN = 4 * 60 * 1000;
+  const adWaiting = {};
+  function adReady() {
+    try { return !!(window.AndroidBridge && window.AndroidBridge.adReady && window.AndroidBridge.adReady()); } catch (e) { return false; }
+  }
+  function showAd(tag) {
+    return new Promise((resolve) => {
+      if (!adReady()) { toast(T('adFail'), 1400); resolve(false); return; }
+      adWaiting[tag] = resolve;
+      musicStop();
+      if (A.ctx) A.ctx.suspend();
+      window.AndroidBridge.showRewarded(tag);
+    });
+  }
+  window.vpAdDone = (tag, earned) => {
+    if (A.ctx) A.ctx.resume();
+    if (state === 'shop') musicStart();
+    const done = adWaiting[tag];
+    delete adWaiting[tag];
+    if (done) done(!!earned);
+  };
+  async function adDouble() {
+    if (doubled || !(await showAd('double'))) return;
+    doubled = true;
+    save.coins += lastTotal; store();
+    show('btn-ad-double', false);
+    countUp('res-total', lastTotal * 2, '+', ' 🪙', 0);
+    toast(T('adThanks'), 1300); sfx.perfect(); vib(60);
+  }
+  async function adBoost() {
+    if (!(await showAd('boost'))) return;
+    save.bonusTurbo = 2; save.adBoostAt = Date.now(); store();
+    toast(T('boostReady'), 1500); sfx.perfect();
+    renderShop();
+  }
+  // Videos load in the background, so check now and then whether the buttons can show.
+  function refreshAdButtons() {
+    const ready = adReady();
+    if (state === 'result') show('btn-ad-double', ready && !doubled && lastTotal > 0);
+    if (state === 'shop') {
+      const wait = (save.adBoostAt || 0) + BOOST_COOLDOWN - Date.now();
+      const has = !!save.bonusTurbo;
+      show('ad-boost', has || ready || wait > 0);
+      $('ad-boost-text').textContent = has ? T('boostReady') : wait > 0 ? T('boostWait')(Math.ceil(wait / 60000)) : T('adBoost');
+      show('btn-ad-boost', !has && wait <= 0 && ready);
+    }
+  }
+  setInterval(refreshAdButtons, 1000);
 
   // ---------- shop ----------
   function renderShop() {
@@ -862,7 +956,8 @@
     const pm = M.prestigeMult(save);
     $('shop-universe').textContent = save.prestige ? T('universe')(save.prestige + 1, pm) : '';
     show('prestige', M.canPrestige(save));
-    show('cheats', !!save.cheats);
+    show('cheats', CHEATS_OK && !!save.cheats);
+    refreshAdButtons();
     document.querySelectorAll('[data-cheat=god]').forEach((b) => b.classList.toggle('on', !!save.god));
     document.querySelectorAll('[data-cheat=fuel]').forEach((b) => b.classList.toggle('on', !!save.infFuel));
     $('btn-prestige').textContent = T('prestigeBtn')(save.prestige + 2, 1 + 0.5 * (save.prestige + 1));
@@ -976,7 +1071,11 @@
   }
 
   function renderCollection() {
-    $('col-stats').textContent = T('colStats')(fmt(save.best || save.record), save.flights, save.achievements.length, M.ACHIEVEMENTS.length);
+    $('col-stats').textContent = T('colStats')(fmt(save.best || save.record), save.flights, save.achievements.length, M.ACHIEVEMENTS.length) +
+      (window.AndroidBridge && window.AndroidBridge.version ? ' · v' + window.AndroidBridge.version() : '');
+    let privacy = false;
+    try { privacy = !!(window.AndroidBridge && window.AndroidBridge.privacyOptionsRequired()); } catch (e) { /* browser */ }
+    show('btn-privacy', privacy);
     const december = new Date().getMonth() === 11;
     const sk = $('skins');
     sk.innerHTML = '';
@@ -2284,11 +2383,15 @@
   }
 
   // ---------- HUD ----------
+  // Writing to the page every frame is slow on phones, so only write changes.
+  let hudCache = {};
+  function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
   let hudZoneT = 0;
   function updateHud(dt) {
-    $('hud-height').textContent = fmt(rocket.y) + ' m';
-    $('hud-coins').textContent = '🪙 ' + fmt(rocket.coins);
-    $('hud-fuel').style.width = clamp((rocket.fuel / rocket.fuelMax) * 100, 0, 100) + '%';
+    setText('hud-height', fmt(rocket.y) + ' m');
+    setText('hud-coins', '🪙 ' + fmt(rocket.coins));
+    const fw = Math.round(clamp((rocket.fuel / rocket.fuelMax) * 100, 0, 100)) + '%';
+    if (hudCache.fuel !== fw) { hudCache.fuel = fw; $('hud-fuel').style.width = fw; }
     const zi = L.zoneIndex(rocket.y);
     if (zi > flightZone) {
       flightZone = zi;
@@ -2363,8 +2466,8 @@
       rocket.magnetT = Math.max(0, rocket.magnetT - dt);
       rocket.slowT = Math.max(0, rocket.slowT - dt);
       if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
-      $('hud-combo').textContent = combo >= 3 ? T('combo')(combo, Math.min(5, 1 + Math.floor(combo / 5))) : '';
-      $('hud-power').textContent = (rocket.shield ? '🛡️ ' : '') + (rocket.magnetT > 0 ? '🧲' + Math.ceil(rocket.magnetT) + ' ' : '') + (rocket.slowT > 0 ? '⏳' + Math.ceil(rocket.slowT) : '');
+      setText('hud-combo', combo >= 3 ? T('combo')(combo, Math.min(5, 1 + Math.floor(combo / 5))) : '');
+      setText('hud-power', (rocket.shield ? '🛡️ ' : '') + (rocket.magnetT > 0 ? '🧲' + Math.ceil(rocket.magnetT) + ' ' : '') + (rocket.slowT > 0 ? '⏳' + Math.ceil(rocket.slowT) : ''));
       if (bonusT > 0) {
         // coin rain: coins pour down just ahead of you
         bonusT -= dt; bonusSpawn -= dt;
@@ -2649,15 +2752,19 @@
   $('btn-light').addEventListener('click', light);
   $('btn-turbo').addEventListener('pointerdown', (e) => { e.stopPropagation(); useTurbo(); });
   $('btn-continue').addEventListener('click', goShop);
+  $('btn-ad-double').addEventListener('click', adDouble);
+  $('btn-ad-boost').addEventListener('click', adBoost);
+  $('btn-privacy').addEventListener('click', () => { try { window.AndroidBridge.showPrivacyOptions(); } catch (e) { /* browser */ } });
   $('btn-evolve').addEventListener('click', evolve);
   $('btn-sound').addEventListener('click', cycleSound);
   $('btn-reset').addEventListener('click', async () => {
     if (await ask(T('resetAsk'))) { save = Object.assign(L.freshSave(), { sound: save.sound, tilt: save.tilt }); store(); goShop(); }
   });
 
-  // ---------- TEMPORARY cheat mode: tap the title 5 times. Remove before a store release. ----------
+  // ---------- cheat mode: tap the title 5 times (hobby/test build and browser only) ----------
   let titleTaps = 0, titleTapT = 0;
   document.querySelector('#shop .title').addEventListener('click', () => {
+    if (!CHEATS_OK) return;
     const now = performance.now();
     titleTaps = now - titleTapT < 600 ? titleTaps + 1 : 1;
     titleTapT = now;

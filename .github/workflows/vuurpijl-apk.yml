@@ -1,4 +1,4 @@
-name: Vuurpijl APK
+name: Rocket! APK and Play bundle
 
 on:
   push:
@@ -13,6 +13,9 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    env:
+      # true once the Play Store upload key is stored as GitHub secrets (see vuurpijl/DEPLOY.md)
+      HAS_UPLOAD_KEY: ${{ secrets.UPLOAD_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,28 +49,54 @@ jobs:
 
       - uses: android-actions/setup-android@v3
         with:
-          packages: 'platforms;android-35 build-tools;35.0.0'
+          packages: 'platforms;android-36 build-tools;36.0.0'
 
-      - name: Build APK
+      # The hobby APK: sideload it to test (cheat mode, Google's test ads).
+      # The Play bundle is always built so a broken store build shows up here.
+      - name: Build the test APK and the Play Store bundle
         working-directory: vuurpijl/android
+        env:
+          UPLOAD_KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+          ADMOB_REWARDED_ID: ${{ secrets.ADMOB_REWARDED_ID }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Vuurpijl.apk"
+          if [ "$HAS_UPLOAD_KEY" = "true" ]; then
+            echo "$UPLOAD_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            export UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.jks"
+            [ -n "$ADMOB_APP_ID" ] || echo "::warning::ADMOB_APP_ID is not set, so the Play bundle shows Google's TEST ads"
+          else
+            echo "::notice::No upload key yet: the Play bundle is built unsigned and not uploaded (see vuurpijl/DEPLOY.md)"
+          fi
+          ./gradlew --no-daemon assembleHobbyRelease bundlePlayRelease
+          cp app/build/outputs/apk/hobby/release/app-hobby-release.apk "$GITHUB_WORKSPACE/Rocket.apk"
+          cp app/build/outputs/bundle/playRelease/app-play-release.aab "$GITHUB_WORKSPACE/Rocket-play.aab"
+          rm -f "$RUNNER_TEMP/upload.jks"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Vuurpijl-apk
-          path: Vuurpijl.apk
+          name: Rocket-apk
+          path: Rocket.apk
+
+      # The signed bundle goes to the (private) run artifacts, never to the public release.
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_UPLOAD_KEY == 'true'
+        with:
+          name: Rocket-play-bundle
+          path: Rocket-play.aab
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: vuurpijl-v${{ github.run_number }}
-          name: Vuurpijl! build ${{ github.run_number }}
+          tag_name: rocket-v${{ github.run_number }}
+          name: Rocket! build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          files: Vuurpijl.apk
+          files: Rocket.apk
           body: |
-            Download **Vuurpijl.apk** op je Android-telefoon en open het bestand.
-            Sta "installeren van onbekende bronnen" toe als je telefoon daarom vraagt.
+            Download **Rocket.apk** on your Android phone and open it.
+            Allow "install unknown apps" if your phone asks.
+            This is the test build (cheat mode, Google's test ads). The Play Store bundle is a private run artifact.

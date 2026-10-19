@@ -9,33 +9,56 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.speech.tts.TextToSpeech;
 import android.util.Base64;
+import android.view.DisplayCutout;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebResourceRequest;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.window.OnBackInvokedDispatcher;
 
+import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
+
+import com.google.android.gms.ads.AdError;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.FullScreenContentCallback;
+import com.google.android.gms.ads.LoadAdError;
+import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.rewarded.RewardedAd;
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
+import com.google.android.ump.ConsentInformation;
+import com.google.android.ump.ConsentRequestParameters;
+import com.google.android.ump.UserMessagingPlatform;
+
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Full-screen WebView that runs the game from the APK's assets. */
+/** Full-screen WebView that runs the game from the app's assets. */
 public class MainActivity extends Activity {
 
     private static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
 
     private WebView web;
     private TextToSpeech tts;
-    private boolean ttsReady;
+    private volatile boolean ttsReady;
+
+    // rewarded videos (AdMob), only after the player answered the consent form
+    private ConsentInformation consent;
+    private final AtomicBoolean adsStarted = new AtomicBoolean(false);
+    private volatile RewardedAd rewarded;
+    private boolean loadingAd;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,8 +80,12 @@ public class MainActivity extends Activity {
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return loader.shouldInterceptRequest(request.getUrl());
             }
-        });
 
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                sendInsets();
+            }
+        });
         // also lets standard JavaScript dialogs show, should the page ever use one
         web.setWebChromeClient(new WebChromeClient());
 
@@ -69,6 +96,12 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
 
+        // the game keeps its HUD out of the camera cut-out
+        web.setOnApplyWindowInsetsListener((v, insets) -> {
+            sendInsets();
+            return insets;
+        });
+
         // a voice for the countdown
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -78,12 +111,88 @@ public class MainActivity extends Activity {
             }
         });
 
+        // Android 13+ (and always from Android 16): back goes through this callback.
+        if (Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
+        }
+
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
         web.loadUrl(START_URL);
+
+        setUpAds();
     }
 
-    /** Lets the game ask for haptic feedback. */
+    // ---------- ads: consent first (required in the EU), then load a rewarded video ----------
+
+    private void setUpAds() {
+        consent = UserMessagingPlatform.getConsentInformation(this);
+        ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
+        consent.requestConsentInfoUpdate(this, params,
+                () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> startAds()),
+                requestError -> startAds());
+        // consent from an earlier session: no need to wait for the update
+        if (consent.canRequestAds()) startAds();
+    }
+
+    private void startAds() {
+        if (!consent.canRequestAds() || adsStarted.getAndSet(true)) return;
+        new Thread(() -> MobileAds.initialize(this, status -> runOnUiThread(this::loadRewarded))).start();
+    }
+
+    private void loadRewarded() {
+        if (loadingAd || rewarded != null || isFinishing()) return;
+        loadingAd = true;
+        RewardedAd.load(this, BuildConfig.REWARDED_ID, new AdRequest.Builder().build(), new RewardedAdLoadCallback() {
+            @Override
+            public void onAdLoaded(@NonNull RewardedAd ad) {
+                loadingAd = false;
+                rewarded = ad;
+            }
+
+            @Override
+            public void onAdFailedToLoad(@NonNull LoadAdError error) {
+                loadingAd = false;
+                rewarded = null;
+                web.postDelayed(MainActivity.this::loadRewarded, 60_000); // no fill: try again later
+            }
+        });
+    }
+
+    private void showRewarded(String tag) {
+        RewardedAd ad = rewarded;
+        if (ad == null) {
+            adDone(tag, false);
+            loadRewarded();
+            return;
+        }
+        rewarded = null;
+        final boolean[] earned = {false};
+        ad.setFullScreenContentCallback(new FullScreenContentCallback() {
+            @Override
+            public void onAdDismissedFullScreenContent() {
+                adDone(tag, earned[0]);
+                loadRewarded();
+            }
+
+            @Override
+            public void onAdFailedToShowFullScreenContent(@NonNull AdError error) {
+                adDone(tag, false);
+                loadRewarded();
+            }
+        });
+        ad.show(this, reward -> earned[0] = true);
+    }
+
+    private void adDone(String tag, boolean rewardEarned) {
+        web.evaluateJavascript("window.vpAdDone && window.vpAdDone(" + JSONObject.quote(tag) + "," + rewardEarned + ")", null);
+        hideSystemBars();
+    }
+
+    // ---------- what the game can ask of the phone ----------
+
     private class Bridge {
+        /** Haptic feedback. */
         @JavascriptInterface
         public void vibrate(long ms) {
             Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
@@ -107,7 +216,7 @@ public class MainActivity extends Activity {
                 try (FileOutputStream out = new FileOutputStream(file)) {
                     out.write(Base64.decode(base64Png, Base64.DEFAULT));
                 }
-                Uri uri = FileProvider.getUriForFile(MainActivity.this, "nl.vuurpijl.game.files", file);
+                Uri uri = FileProvider.getUriForFile(MainActivity.this, BuildConfig.APPLICATION_ID + ".files", file);
                 Intent send = new Intent(Intent.ACTION_SEND);
                 send.setType("image/png");
                 send.putExtra(Intent.EXTRA_STREAM, uri);
@@ -118,6 +227,57 @@ public class MainActivity extends Activity {
                 // nothing to share then; the game carries on
             }
         }
+
+        /** Cheat mode only exists in the hobby build, never in the Play Store one. */
+        @JavascriptInterface
+        public boolean cheatsAllowed() {
+            return BuildConfig.CHEATS;
+        }
+
+        @JavascriptInterface
+        public String version() {
+            return BuildConfig.VERSION_NAME + (BuildConfig.CHEATS ? " (hobby)" : "");
+        }
+
+        /** Is a rewarded video loaded and ready to show? */
+        @JavascriptInterface
+        public boolean adReady() {
+            return rewarded != null;
+        }
+
+        /** Shows the rewarded video; the answer comes back through window.vpAdDone(tag, earned). */
+        @JavascriptInterface
+        public void showRewarded(String tag) {
+            runOnUiThread(() -> MainActivity.this.showRewarded(tag));
+        }
+
+        /** In the EU players must be able to change their ad choices later. */
+        @JavascriptInterface
+        public boolean privacyOptionsRequired() {
+            return consent != null && consent.getPrivacyOptionsRequirementStatus()
+                    == ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED;
+        }
+
+        @JavascriptInterface
+        public void showPrivacyOptions() {
+            runOnUiThread(() -> UserMessagingPlatform.showPrivacyOptionsForm(MainActivity.this, formError -> {
+                hideSystemBars();
+                startAds();
+            }));
+        }
+    }
+
+    /** Tells the page how tall the camera cut-out is, in CSS pixels. */
+    private void sendInsets() {
+        if (web == null) return;
+        int top = 0;
+        WindowInsets insets = web.getRootWindowInsets();
+        if (insets != null) {
+            DisplayCutout cut = insets.getDisplayCutout();
+            if (cut != null) top = cut.getSafeInsetTop();
+        }
+        float dp = top / getResources().getDisplayMetrics().density;
+        web.evaluateJavascript("document.documentElement.style.setProperty('--inset-top','" + Math.round(dp) + "px')", null);
     }
 
     @SuppressWarnings("deprecation")
@@ -146,12 +306,17 @@ public class MainActivity extends Activity {
     }
 
     // The game decides what back means (leave a screen, or quit from the shop).
-    @SuppressWarnings("deprecation")
-    @Override
-    public void onBackPressed() {
+    private void handleBack() {
         web.evaluateJavascript("window.vpBack ? window.vpBack() : 'exit'", value -> {
             if (value == null || value.contains("exit")) finish();
         });
+    }
+
+    // Android 12 and older still call this.
+    @SuppressWarnings("deprecation")
+    @Override
+    public void onBackPressed() {
+        handleBack();
     }
 
     @Override
