@@ -8,6 +8,8 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+// Android's WebView silently answers native dialogs with "no", so the game must never use them
+page.on('dialog', (d) => { errors.push('native dialog used: ' + d.message()); d.dismiss(); });
 const shot = async (n) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${n}.png` }); };
 const state = () => page.evaluate(() => window.__vp.state);
 // the splash screen covers everything until it is tapped
@@ -234,11 +236,16 @@ if (await state() === 'result') await page.click('#btn-continue');
 await setSave('s.ends = Math.max(1, s.ends);');
 await reload();
 if (!(await page.isVisible('#prestige'))) throw new Error('new universe not offered');
-page.once('dialog', (d) => d.accept());
 await page.click('#btn-prestige');
+if (!(await page.isVisible('#modal'))) throw new Error('no confirmation dialog');
+await page.click('#modal-yes');
 const uni = await page.evaluate(() => window.__vp.save);
 if (uni.prestige !== 1 || uni.coins !== 0 || uni.record !== 0 || uni.skin !== 'shades') throw new Error('new universe did not reset properly');
 if (!(await page.textContent('#shop-universe')).includes('Universe #2')) throw new Error('universe line missing');
+// the reset button asks the same way; cancel keeps everything
+await page.click('#btn-reset');
+await page.click('#modal-no');
+if ((await page.evaluate(() => window.__vp.save.prestige)) !== 1) throw new Error('cancel should keep the save');
 await shot('16-universe');
 await browser.close();
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

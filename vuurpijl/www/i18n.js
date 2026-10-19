@@ -67,7 +67,7 @@
       resCombo: 'Best combo', resAch: 'Achievements', share: '📤 SHARE',
       shareText: (h, where) => 'I flew ' + h + ' m to ' + where + ' in Rocket! Can you beat me? 🚀',
       shareTitle: 'I reached', shareBeat: 'Can you beat me?', best: 'BEST',
-      liftoff: 'LIFTOFF!',
+      liftoff: 'LIFTOFF!', yes: 'YES', no: 'Cancel',
       cheatsOn: '🛠️ Cheat mode', soundAll: 'Sound and music', soundFx: 'Sound effects only', soundOff: 'Sound off',
     },
   };

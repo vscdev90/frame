@@ -264,6 +264,9 @@
   let fl = null, combo = 0, comboT = 0, bonusT = 0, bonusSpawn = 0, bossMet = {};
   let flightT = 0, ghostRec = [], ghostNext = 0;
   let cd = null;   // space-rocket countdown
+  // juice: hit-stop and zoom on the final bang, coins flying to the counter,
+  // shooting stars, and whether this flight already beat the record
+  let hitStop = 0, punch = 0, uiCoins = [], shoot = null, shootNext = 4, beatRecord = false, recordAtLaunch = 0;
   const snow = Array.from({ length: 70 }, (_, i) => ({ x: hash(i + 2000), y: hash(i + 2100), s: 1 + hash(i + 2200) * 2.5 }));
 
   const stars = Array.from({ length: 160 }, (_, i) => ({ x: hash(i), y: hash(i + 500), s: 0.5 + hash(i + 900) * 1.8, p: hash(i + 1300) * 6.28 }));
@@ -513,6 +516,7 @@
       rocket.coins += o.v * m;
       floatText(o.x, o.y, '+' + o.v * m);
       sfx.coin();
+      if (uiCoins.length < 30) uiCoins.push({ x: sx, y: sy, t: 0 });
       for (let i = 0; i < 6; i++) part(o.x, o.y, { vx: rand(-80, 80), vy: rand(-80, 80), life: 0.4, size: 2, color: '#ffd23f' });
     } else if (o.type === 'fuel') {
       o.dead = true;
@@ -661,6 +665,7 @@
     nextSpawnY = 12;
     objects = [];
     flightZone = 0; reachedEnd = false; stageShown = 1; lastPuff = false;
+    beatRecord = false; recordAtLaunch = save.record; uiCoins = []; hitStop = 0; punch = 0;
     state = 'flight';
     if (save.flights < 3) {
       $('hud-zone').textContent = T('steerHint');
@@ -747,6 +752,7 @@
     } else {
       const type = TYPE();
       sfx.boom(big + (type.burst === 'big' ? 6 : 0));
+      hitStop = 0.22; punch = type.burst === 'big' ? 0.35 : 0.2;
       if (type.burst === 'big') tone(45, 1.1, 'sine', 0.8, 25);
       if (type.burst === 'willow') tone(2200, 0.9, 'sine', 0.05, 500);
       if (type.burst === 'confetti') sfx[type.id === 'varken' ? 'oink' : 'moo']();
@@ -798,14 +804,28 @@
 
     $('res-title').textContent = reachedEnd ? T('endTitle') : (maxH < 5 ? T('plofTitle') : T('booms')[Math.floor(Math.random() * 4)]);
     $('res-height').textContent = fmt(maxH) + ' m';
-    $('res-coins').textContent = fmt(rocket.coins) + ' 🪙';
-    $('res-bonus').textContent = fmt(bonus) + ' 🪙';
+    countUp('res-coins', rocket.coins, '', ' 🪙', 0);
+    countUp('res-bonus', bonus, '', ' 🪙', 0.25);
     show('res-zone-line', zoneBonus > 0);
     $('res-zone').textContent = zoneName + ' +' + fmt(zoneBonus);
     show('res-record', newRecord);
-    $('res-total').textContent = '+' + fmt(total) + ' 🪙';
+    countUp('res-total', total, '+', ' 🪙', 0.5);
     show('result', true);
     if (newRecord || zoneBonus) { sfx.perfect(); vib(60); }
+  }
+
+  // Count a number up on screen, ticking as it goes.
+  function countUp(id, value, pre, post, delay) {
+    const el = $(id), dur = 0.7, t0 = performance.now() + delay * 1000;
+    el.textContent = pre + '0' + post;
+    let lastTick = 0;
+    const stepFn = (now) => {
+      const k = clamp((now - t0) / (dur * 1000), 0, 1);
+      el.textContent = pre + fmt(value * (1 - Math.pow(1 - k, 3))) + post;
+      if (k > 0 && now - lastTick > 70 && k < 1) { lastTick = now; tone(1200 + k * 800, 0.03, 'square', 0.03); }
+      if (k < 1) requestAnimationFrame(stepFn); else if (id === 'res-total') { bump(id); tone(1600, 0.12, 'triangle', 0.15); }
+    };
+    requestAnimationFrame(stepFn);
   }
 
   // ---------- shop ----------
@@ -854,6 +874,7 @@
       const can = !max && save.coins >= c;
       const el = document.createElement('div');
       el.className = 'upg' + (can ? ' can' : '');
+      el.dataset.id = u.id;
       const bars = Array.from({ length: Math.min(u.max, 10) }, (_, i) => {
         const filled = u.max > 10 ? lv >= (i + 1) * (u.max / 10) : lv > i;
         return '<i class="' + (filled ? 'on' : '') + '"></i>';
@@ -922,9 +943,20 @@
     renderShop();
   }
 
-  function startUniverse() {
+  // Yes/no in our own dialog (Android's WebView silently answers window.confirm with "no").
+  function ask(text) {
+    $('modal-text').textContent = text;
+    show('modal', true);
+    return new Promise((resolve) => {
+      const done = (v) => { show('modal', false); $('modal-yes').onclick = $('modal-no').onclick = null; resolve(v); };
+      $('modal-yes').onclick = () => done(true);
+      $('modal-no').onclick = () => done(false);
+    });
+  }
+
+  async function startUniverse() {
     audioInit();
-    if (!M.canPrestige(save) || !window.confirm(T('prestigeAsk'))) return;
+    if (!M.canPrestige(save) || !(await ask(T('prestigeAsk')))) return;
     save = M.prestige(save);
     M.checkAchievements(save, null);
     store();
@@ -1095,6 +1127,9 @@
     save.lv[u.id]++;
     store(); sfx.buy(); vib(15);
     renderShop();
+    const card = document.querySelector('.upg[data-id="' + u.id + '"]');
+    if (card) { card.classList.add('bought'); card.insertAdjacentHTML('beforeend', '<span class="plus">+1</span>'); }
+    bump('shop-coins');
   }
 
   function evolve() {
@@ -1168,7 +1203,8 @@
         c.beginPath(); c.moveTo(7, -14); c.lineTo(15, 2); c.lineTo(7, 0); c.fill();
       }
     }
-    // body
+    // body, with a soft shadow for depth
+    c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = 6; c.shadowOffsetX = 1.5;
     const bg = c.createLinearGradient(-7, 0, 7, 0);
     bg.addColorStop(0, shadeHex(evo.body, -40)); bg.addColorStop(0.45, shadeHex(evo.body, 35)); bg.addColorStop(1, shadeHex(evo.body, -55));
     c.fillStyle = bg;
@@ -1181,6 +1217,10 @@
     } else {
       c.fillRect(-7, -44, 14, 44);
     }
+    c.shadowColor = 'transparent';
+    // gloss: a light streak and a dark edge make the tube look round
+    c.fillStyle = 'rgba(255,255,255,.32)'; c.fillRect(-4.5, two && staged ? -42 : -42, 2, two && !staged ? 20 : 38);
+    c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(4.5, -44, 2.5, two && !staged ? 24 : 44);
     // stripes
     c.fillStyle = type.id === 'goud' ? '#ffd23f' : 'rgba(255,255,255,.85)';
     for (let i = 0; i < evo.stripes; i++) c.fillRect(-7, -36 + i * 9, 14, 3);
@@ -1191,6 +1231,11 @@
     // nose
     c.fillStyle = type.id === 'goud' ? '#ffd23f' : evo.nose;
     c.beginPath(); c.moveTo(-8, -44); c.lineTo(0, -62); c.lineTo(8, -44); c.closePath(); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.35)';
+    c.beginPath(); c.moveTo(-5, -45); c.lineTo(-1, -58); c.lineTo(-2, -45); c.closePath(); c.fill();
+    // rivets
+    c.fillStyle = 'rgba(0,0,0,.3)';
+    for (let i = 0; i < 3; i++) { c.fillRect(-5 + i * 5, -43, 1.2, 1.2); }
     c.fillStyle = 'rgba(0,0,0,.25)';
     c.fillRect(-7, base - 3, 14, 3);
     drawAccessory(c, -62);
@@ -1259,6 +1304,7 @@
         c.beginPath(); c.moveTo(-fw, base); c.quadraticCurveTo(0, base + len * 1.2, fw, base); c.closePath(); c.fill();
       }
     }
+    c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = 6; c.shadowOffsetX = 1.5;
     switch (id) {
       case 'cola': // upside down: the spray comes out of the neck
         R(-4, -10, 8, 10, '#3b1f12'); P([[-4, -10], [-10, -20], [10, -20], [4, -10]], '#3b1f12');
@@ -1350,6 +1396,7 @@
         break;
       }
     }
+    c.shadowColor = 'transparent';
     drawAccessory(c, CRAFT_TOP[id] || -62);
     c.restore();
   }
@@ -1398,6 +1445,14 @@
     }
     cx.globalAlpha = 1;
 
+    if (shoot) {
+      const a = shoot.life / shoot.max;
+      const g = cx.createLinearGradient(shoot.x, shoot.y, shoot.x - shoot.vx * 0.12, shoot.y - shoot.vy * 0.12);
+      g.addColorStop(0, 'rgba(255,255,255,' + a + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      cx.strokeStyle = g; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(shoot.x, shoot.y); cx.lineTo(shoot.x - shoot.vx * 0.12, shoot.y - shoot.vy * 0.12); cx.stroke();
+    }
+
     const au = bell(h, 1200, 1800, 3000, 3700);
     if (au > 0) drawAurora(au);
     const spaceA = clamp((h - 2600) / 800, 0, 1);
@@ -1416,6 +1471,11 @@
         cx.fillStyle = 'rgba(150,160,210,' + (0.22 + env.flash * 0.35) * cloudA + ')';
         for (let i = 0; i < 4; i++) {
           cx.beginPath(); cx.ellipse(x + (i - 1.5) * c.w * 0.3, y + Math.sin(i * 2.1) * 8, c.w * 0.32, c.w * 0.18, 0, 0, 7); cx.fill();
+        }
+        // moonlit tops
+        cx.fillStyle = 'rgba(210,215,255,' + (0.1 + env.flash * 0.3) * cloudA + ')';
+        for (let i = 0; i < 3; i++) {
+          cx.beginPath(); cx.ellipse(x + (i - 1) * c.w * 0.3, y - c.w * 0.07 + Math.sin(i * 2.1) * 6, c.w * 0.22, c.w * 0.09, 0, 0, 7); cx.fill();
         }
       }
     }
@@ -1588,7 +1648,56 @@
       cx.fillStyle = '#1a1433';
       cx.fillRect(x0, y0, w, hp);
       cx.beginPath(); cx.moveTo(x0 - 0.6 * p, y0); cx.lineTo(x0 + w / 2, y0 - 3.5 * p); cx.lineTo(x0 + w + 0.6 * p, y0); cx.fill();
+      // chimney (with a puff of smoke now and then), roof edge, door
+      cx.fillRect(x0 + w * 0.7, y0 - 3.4 * p, 1 * p, 2.4 * p);
+      if (hash(i + 9) < 0.5 && Math.random() < 0.02 && state !== 'flight') {
+        const [wx, wy] = s2w(x0 + w * 0.7 + 0.5 * p, y0 - 3.4 * p);
+        part(wx, wy, { vx: rand(-5, 10), vy: rand(-30, -15), drag: 0.99, life: 2.5, max: 2.5, size: 2, grow: 10, color: '#6a6488', glow: false });
+      }
+      cx.strokeStyle = '#2c2450'; cx.lineWidth = Math.max(1, 0.25 * p);
+      cx.beginPath(); cx.moveTo(x0 - 0.6 * p, y0); cx.lineTo(x0 + w / 2, y0 - 3.5 * p); cx.lineTo(x0 + w + 0.6 * p, y0); cx.stroke();
       litWindows(i, x0, y0, w, hp, Math.max(1, Math.floor(hw / 3)), Math.max(1, Math.floor(hh / 3.4)), 0.45, p);
+      cx.fillStyle = '#3a2a1f'; cx.fillRect(x0 + w * 0.15, y0 + hp - 2.6 * p, 1.2 * p, 2.6 * p);
+      cx.fillStyle = '#ffd57a'; cx.fillRect(x0 + w * 0.15 + 0.9 * p, y0 + hp - 1.4 * p, 0.2 * p, 0.2 * p);
+      // a tree and a little fence in the gap
+      const tx = x0 + w + 1.6 * p;
+      if (hash(i + 33) < 0.6) {
+        const [, gy0] = w2s(0, 0);
+        cx.fillStyle = '#2a1f1a'; cx.fillRect(tx - 0.2 * p, gy0 - 3 * p, 0.4 * p, 3 * p);
+        cx.fillStyle = '#1b3326'; cx.beginPath(); cx.arc(tx, gy0 - 4 * p, 1.8 * p, 0, 7); cx.arc(tx + 0.9 * p, gy0 - 3.2 * p, 1.3 * p, 0, 7); cx.fill();
+      }
+      cx.strokeStyle = '#2c2450'; cx.lineWidth = Math.max(1, 0.15 * p);
+      const [, fy] = w2s(0, 0);
+      for (let k = 0; k <= 4; k++) { cx.beginPath(); cx.moveTo(x0 - 1.5 * p - k * 0.5 * p, fy); cx.lineTo(x0 - 1.5 * p - k * 0.5 * p, fy - 1 * p); cx.stroke(); }
+    });
+  }
+
+  function drawCars(p, gy) {
+    for (let k = 0; k < 5; k++) {
+      const dir = k % 2 ? 1 : -1, speed = 9 + k * 3;
+      const wx = cam.x + ((((time * speed * dir + k * 47) % 160) + 160) % 160) - 80;
+      if (Math.abs(wx) < 10) continue; // not through the launch pad
+      const [x] = w2s(wx, 0), y = gy + (dir > 0 ? 1.5 : 4.5) * p;
+      cx.fillStyle = ['#c0392b', '#2e86de', '#f1c40f', '#8e44ad', '#16a085'][k];
+      cx.fillRect(x - 2 * p, y - 1.4 * p, 4 * p, 1.1 * p);
+      cx.fillRect(x - 1.2 * p, y - 2.1 * p, 2.4 * p, 0.8 * p);
+      cx.fillStyle = '#111'; cx.beginPath(); cx.arc(x - 1.2 * p, y - 0.3 * p, 0.4 * p, 0, 7); cx.arc(x + 1.2 * p, y - 0.3 * p, 0.4 * p, 0, 7); cx.fill();
+      cx.fillStyle = '#ffe9a8'; cx.fillRect(x + dir * 2 * p - (dir < 0 ? 0.4 * p : 0), y - 1.2 * p, 0.4 * p, 0.4 * p);
+      cx.fillStyle = '#ff1744'; cx.fillRect(x - dir * 2 * p - (dir > 0 ? 0.4 * p : 0), y - 1.2 * p, 0.4 * p, 0.4 * p);
+    }
+  }
+
+  function drawPalms(p) {
+    eachSlot(9, (i) => {
+      if (i < 1 || hash(i + 500) < 0.5) return;
+      const [x, y] = w2s(i * 9 + 6.5, 0);
+      cx.strokeStyle = '#3a2a1f'; cx.lineWidth = 0.6 * p;
+      cx.beginPath(); cx.moveTo(x, y); cx.quadraticCurveTo(x + 1 * p, y - 4 * p, x + 0.5 * p, y - 8 * p); cx.stroke();
+      cx.fillStyle = '#1f3a2a';
+      for (let k = 0; k < 5; k++) {
+        const a = -Math.PI / 2 + (k - 2) * 0.6 + Math.sin(time + i) * 0.05;
+        cx.beginPath(); cx.ellipse(x + 0.5 * p + Math.cos(a) * 1.6 * p, y - 8 * p + Math.sin(a) * 1.2 * p + 0.6 * p, 2 * p, 0.45 * p, a, 0, 7); cx.fill();
+      }
     });
   }
 
@@ -1736,10 +1845,132 @@
     cx.restore();
   }
 
+  // Two far-away layers behind the scenery that move slower than the ground.
+  function drawSkyline(gy, site) {
+    const base0 = H * 0.78;
+    [[0.25, '#2a2452', 70], [0.5, '#1d1840', 95]].forEach(([f, col, slot], layer) => {
+      const by = base0 + (gy - base0) * f;
+      if (by > H + 10) return;
+      const ox = -cam.x * cam.ppm * f;
+      const first = Math.floor(-ox / slot) - 1, last = first + Math.ceil(W / slot) + 2;
+      for (let i = first; i <= last; i++) {
+        const x = ox + i * slot, r = hash(i * 7 + layer * 101);
+        cx.fillStyle = col;
+        if (site === 'tuin') {
+          const hh = 18 + r * 22 + layer * 10;
+          cx.fillRect(x, by - hh, slot * 0.8, hh);
+          cx.beginPath(); cx.moveTo(x - 4, by - hh); cx.lineTo(x + slot * 0.4, by - hh - 14); cx.lineTo(x + slot * 0.8 + 4, by - hh); cx.fill();
+          if (layer === 0 && ((i % 9) + 9) % 9 === 4) { // church spire
+            cx.fillRect(x + slot * 0.3, by - hh - 40, 12, 40);
+            cx.beginPath(); cx.moveTo(x + slot * 0.3 - 2, by - hh - 40); cx.lineTo(x + slot * 0.3 + 6, by - hh - 70); cx.lineTo(x + slot * 0.3 + 14, by - hh - 40); cx.fill();
+          }
+          if (layer === 0 && ((i % 11) + 11) % 11 === 7) drawWindmill(x + slot * 0.4, by - hh - 6, col);
+          if (layer === 1 && r > 0.4) { cx.beginPath(); cx.arc(x + slot * 0.9, by - 16, 14, 0, 7); cx.fill(); cx.fillRect(x + slot * 0.9 - 2, by - 16, 4, 16); }
+          if (layer === 1) dots(x, by - hh, slot * 0.8, hh, i, 0.75);
+        } else if (site === 'strand') {
+          if (layer === 0) {
+            cx.fillStyle = '#16264a'; cx.fillRect(x, by - 6, slot + 1, 6);
+            if (r > 0.82) { cx.fillStyle = Math.sin(time * 3 + i) > 0 ? '#ffd57a' : '#8a6a30'; cx.fillRect(x + 20, by - 9, 3, 3); }
+            if (((i % 13) + 13) % 13 === 5) drawLighthouse(x + 30, by);
+          } else {
+            cx.beginPath(); cx.moveTo(x, by); cx.quadraticCurveTo(x + slot / 2, by - 18 - r * 14, x + slot, by); cx.fill();
+          }
+        } else if (site === 'stad') {
+          const hh = (layer ? 60 : 110) + r * (layer ? 60 : 120);
+          cx.fillRect(x, by - hh, slot * 0.85, hh);
+          if (r > 0.7) cx.fillRect(x + slot * 0.4, by - hh - 20, 3, 20);
+          dots(x, by - hh, slot * 0.85, hh, i + layer * 50, layer ? 0.6 : 0.8);
+        } else if (site === 'berg') {
+          const hh = (layer ? 50 : 120) + r * (layer ? 40 : 90);
+          cx.beginPath(); cx.moveTo(x - slot * 0.6, by); cx.lineTo(x + slot * 0.4, by - hh); cx.lineTo(x + slot * 1.4, by); cx.fill();
+          if (!layer) { cx.fillStyle = 'rgba(200,215,240,.35)'; cx.beginPath(); cx.moveTo(x + slot * 0.4 - hh * 0.18, by - hh * 0.75); cx.lineTo(x + slot * 0.4, by - hh); cx.lineTo(x + slot * 0.4 + hh * 0.18, by - hh * 0.75); cx.fill(); }
+          if (layer) for (let k = 0; k < 4; k++) { const tx = x + k * slot / 4; cx.beginPath(); cx.moveTo(tx - 6, by); cx.lineTo(tx, by - 22 - hash(i + k) * 14); cx.lineTo(tx + 6, by); cx.fill(); }
+        } else {
+          const hh = 14 + r * 20;
+          cx.fillRect(x, by - hh, slot * 0.7, hh);
+          if (layer === 0 && ((i % 7) + 7) % 7 === 2) drawRadar(x + slot * 0.35, by - hh, col);
+          if (r > 0.6) { cx.fillStyle = Math.sin(time * 4 + i) > 0 ? '#ff1744' : '#40000c'; cx.fillRect(x + slot * 0.35, by - hh - 3, 3, 3); }
+        }
+      }
+    });
+  }
+  function dots(x, y, w, h, seed, dark) {
+    for (let a = 4; a < w - 4; a += 7) for (let b = 6; b < h - 4; b += 9) {
+      if (hash(seed * 13 + a * 3 + b) < dark) continue;
+      cx.fillStyle = hash(seed + a + b) < 0.5 ? 'rgba(255,213,122,.7)' : 'rgba(255,179,71,.6)';
+      cx.fillRect(x + a, y + b, 2, 3);
+    }
+  }
+  function drawWindmill(x, y, col) {
+    cx.fillStyle = col;
+    cx.beginPath(); cx.moveTo(x - 9, y + 6); cx.lineTo(x - 5, y - 26); cx.lineTo(x + 5, y - 26); cx.lineTo(x + 9, y + 6); cx.fill();
+    cx.strokeStyle = col; cx.lineWidth = 3;
+    for (let k = 0; k < 4; k++) {
+      const a = time * 0.8 + (k * Math.PI) / 2;
+      cx.beginPath(); cx.moveTo(x, y - 24); cx.lineTo(x + Math.cos(a) * 26, y - 24 + Math.sin(a) * 26); cx.stroke();
+    }
+  }
+  function drawLighthouse(x, by) {
+    cx.fillStyle = '#2c2a55';
+    cx.beginPath(); cx.moveTo(x - 7, by); cx.lineTo(x - 4, by - 50); cx.lineTo(x + 4, by - 50); cx.lineTo(x + 7, by); cx.fill();
+    cx.fillStyle = '#ffe9a8'; cx.fillRect(x - 4, by - 56, 8, 6);
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    const a = Math.sin(time * 0.9) * 1.3;
+    const g = cx.createLinearGradient(x, by - 53, x + Math.cos(a) * 260, by - 53 + Math.sin(a) * 30);
+    g.addColorStop(0, 'rgba(255,240,180,.35)'); g.addColorStop(1, 'rgba(255,240,180,0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.moveTo(x, by - 53); cx.lineTo(x + Math.cos(a) * 260, by - 53 + Math.sin(a) * 30 - 14); cx.lineTo(x + Math.cos(a) * 260, by - 53 + Math.sin(a) * 30 + 14); cx.fill();
+    cx.restore();
+  }
+  function drawRadar(x, y, col) {
+    cx.fillStyle = col; cx.fillRect(x - 2, y - 16, 4, 16);
+    const a = time * 1.2;
+    cx.save(); cx.translate(x, y - 18); cx.scale(Math.cos(a), 1);
+    cx.beginPath(); cx.arc(0, 0, 12, Math.PI * 0.1, Math.PI * 0.9); cx.fill();
+    cx.restore();
+  }
+
+  // People watching the launch; they cheer while you fly.
+  function drawCrowd(p) {
+    const cheer = state === 'flight' || state === 'boom' || state === 'countdown';
+    [-9, -7.2, -5.6, 5.4, 7.1, 8.8].forEach((wx, i) => {
+      const [x, y] = w2s(wx, 0);
+      const s = p / 6, bob = Math.sin(time * (cheer ? 9 : 2) + i) * (cheer ? 2.5 : 0.6) * s;
+      cx.fillStyle = ['#2b2440', '#33294a', '#291f3a'][i % 3];
+      cx.fillRect(x - 4 * s, y - 16 * s + bob, 8 * s, 16 * s);
+      cx.beginPath(); cx.arc(x, y - 20 * s + bob, 4 * s, 0, 7); cx.fill();
+      cx.strokeStyle = cx.fillStyle; cx.lineWidth = 2.2 * s; cx.lineCap = 'round';
+      const up = cheer ? -1 : 0.2;
+      cx.beginPath(); cx.moveTo(x - 4 * s, y - 13 * s + bob); cx.lineTo(x - 8 * s, y + (cheer ? -22 : -6) * s + bob * up); cx.stroke();
+      cx.beginPath(); cx.moveTo(x + 4 * s, y - 13 * s + bob); cx.lineTo(x + 8 * s, y + (cheer ? -22 : -6) * s - bob * up); cx.stroke();
+      if (i === 1 && !cheer) { // someone filming with a phone
+        cx.fillStyle = '#aee3ff'; cx.fillRect(x + 6 * s, y - 24 * s, 3 * s, 4 * s);
+      }
+    });
+  }
+
+  // Street lamps with a warm glow.
+  function drawLamps(p, slot, offset) {
+    eachSlot(slot, (i) => {
+      if (Math.abs(i * slot + offset) < 12) return;
+      const [x, y] = w2s(i * slot + offset, 0);
+      cx.fillStyle = '#14112a'; cx.fillRect(x - 0.15 * p, y - 5 * p, 0.3 * p, 5 * p);
+      cx.fillRect(x - 0.15 * p, y - 5 * p, 1 * p, 0.25 * p);
+      cx.save(); cx.globalCompositeOperation = 'lighter';
+      const g = cx.createRadialGradient(x + 0.8 * p, y - 4.8 * p, 0, x + 0.8 * p, y - 4.8 * p, 4 * p);
+      g.addColorStop(0, 'rgba(255,200,110,.45)'); g.addColorStop(1, 'rgba(255,200,110,0)');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(x + 0.8 * p, y - 4.8 * p, 4 * p, 0, 7); cx.fill();
+      cx.restore();
+      cx.fillStyle = '#ffe2a8'; cx.fillRect(x + 0.5 * p, y - 4.85 * p, 0.6 * p, 0.3 * p);
+    });
+  }
+
   function drawGround() {
     const [, gy] = w2s(0, 0);
-    if (gy > H + 50) return;
+    if (gy > H * 2.5) return;
     const p = cam.ppm, si = save.site || 0, site = L.SITES[si].id;
+    drawSkyline(gy, site);
+    if (gy > H + 50) return;
     if (site === 'tuin') drawHouses(p);
     else if (site === 'strand') drawBeach(p);
     else if (site === 'stad') drawCity(p);
@@ -1754,7 +1985,11 @@
     if (site === 'stad') {
       cx.fillStyle = '#e9d8a6';
       eachSlot(6, (i) => { const [x] = w2s(i * 6, 0); cx.fillRect(x, gy + 3 * p, 3 * p, Math.max(1, 0.3 * p)); });
+      drawCars(p, gy);
     }
+    if (site === 'tuin' || site === 'stad') drawLamps(p, site === 'stad' ? 20 : 14, site === 'stad' ? 10 : 7);
+    if (site === 'strand') drawPalms(p);
+    drawCrowd(p);
     if (state === 'shop' || state === 'ignite' || (rocket && rocket.y < 60)) {
       const [bx] = w2s(0, 0);
       drawLauncher(site, bx, gy, p / 6);
@@ -2037,6 +2272,20 @@
 
   // ---------- main loop ----------
   function update(dt) {
+    // a brief hit-stop when the rocket explodes: the world nearly freezes
+    if (hitStop > 0) { hitStop -= dt; dt *= 0.2; }
+    punch *= Math.exp(-5 * dt);
+    shootNext -= dt;
+    if (shootNext <= 0 && (!rocket || rocket.y < 6000)) {
+      shootNext = rand(3, 9);
+      shoot = { x: rand(0.2, 1) * W, y: rand(0, 0.35) * H, vx: -rand(500, 800), vy: rand(150, 300), life: 0.7, max: 0.7 };
+    }
+    if (shoot) { shoot.x += shoot.vx * dt; shoot.y += shoot.vy * dt; shoot.life -= dt; if (shoot.life <= 0) shoot = null; }
+    for (const u of uiCoins) u.t += dt / 0.45;
+    if (uiCoins.length && uiCoins[0].t >= 1) {
+      while (uiCoins.length && uiCoins[0].t >= 1) uiCoins.shift();
+      bump('hud-coins');
+    }
     time += dt;
     shake *= Math.exp(-8 * dt);
     env.flash = Math.max(0, env.flash - dt * 3);
@@ -2067,6 +2316,13 @@
       if (keys.l || keys.r) target = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
       const n = 3;
       flightT += dt;
+      if (!beatRecord && recordAtLaunch > 20 && rocket.y > recordAtLaunch) {
+        // flying past your record: a moment to celebrate
+        beatRecord = true;
+        toast(T('newRecord'), 1400);
+        sfx.perfect(); vib(80);
+        for (let i = 0; i < 60; i++) part(rocket.x, rocket.y, { vx: rand(-260, 260), vy: rand(-260, 120), g: 160, drag: 0.95, life: rand(0.8, 1.4), size: rand(2, 4), color: ['#ffd23f', '#ff4d6d', '#4cc9f0', '#80ffdb'][i % 4], glow: false });
+      }
       if (save.infFuel && !reachedEnd) rocket.fuel = Math.max(rocket.fuel, 0.5); // cheat
       if (flightT >= ghostNext && ghostRec.length < 4000) {
         ghostRec.push([Math.round(rocket.x * 10) / 10, Math.round(rocket.y * 10) / 10]);
@@ -2167,6 +2423,10 @@
     drawBackground(h);
     cx.save();
     if (shake > 0.3) cx.translate(rand(-shake, shake), rand(-shake, shake));
+    if (punch > 0.01 && rocket) {
+      const [px, py] = w2s(rocket.x, rocket.y);
+      cx.translate(px, py); cx.scale(1 + punch, 1 + punch); cx.translate(-px, -py);
+    }
     drawGround();
     if (state === 'shop' || state === 'ignite' || state === 'countdown') drawIgnite();
     drawObjects();
@@ -2180,13 +2440,69 @@
       }
       const puffOn = !st.puffs || Math.sin(rocket.t * 11) > -0.3;
       const flame = rocket.turboT > 0 ? 2 : rocket.burning && puffOn ? 1 : 0;
+      if (flame) {
+        // the flame lights up the night around the rocket
+        cx.save(); cx.globalCompositeOperation = 'lighter';
+        const r = 90 + Math.random() * 12;
+        const g = cx.createRadialGradient(x, y + 10, 0, x, y + 10, r);
+        g.addColorStop(0, flame > 1 ? 'rgba(76,201,240,.35)' : 'rgba(255,160,60,.32)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        cx.fillStyle = g; cx.beginPath(); cx.arc(x, y + 10, r, 0, 7); cx.fill();
+        cx.restore();
+      }
       drawRocket(cx, x, y, rocket.ang, EVO(), 1, flame, TYPE(), rocket.stageN);
     }
     cx.restore();
     if (env.flash > 0) { cx.fillStyle = 'rgba(210,220,255,' + env.flash * 0.2 + ')'; cx.fillRect(0, 0, W, H); }
     if (state === 'ignite' || state === 'flight' || state === 'boom') drawWeather();
     if (state === 'flight' && rocket.slowT > 0) { cx.fillStyle = 'rgba(199,125,255,.12)'; cx.fillRect(0, 0, W, H); }
-    if (state === 'flight') drawSteerPads();
+    if (state === 'flight') { drawRecordLine(); drawRuler(); drawSteerPads(); }
+    drawUiCoins();
+  }
+
+  // A dashed gold line at your record height, so you can see it coming.
+  function drawRecordLine() {
+    if (recordAtLaunch < 20 || beatRecord) return;
+    const [, y] = w2s(0, recordAtLaunch);
+    if (y < -20 || y > H + 20) return;
+    cx.save();
+    cx.strokeStyle = 'rgba(255,210,63,.8)'; cx.lineWidth = 2; cx.setLineDash([10, 8]); cx.lineDashOffset = -time * 30;
+    cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle = '#ffd23f'; cx.font = '900 13px system-ui, sans-serif'; cx.textAlign = 'right';
+    cx.fillText('🏆 ' + T('record').toUpperCase() + ' ' + fmt(recordAtLaunch) + ' m', W - 10, y - 6);
+    cx.restore();
+  }
+
+  // Height marks along the right edge.
+  const RULER = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+  function drawRuler() {
+    const step = RULER.find((s) => s * cam.ppm >= 90) || 20000;
+    const top = cam.y + (H * cam.anchor) / cam.ppm, bottom = cam.y - (H * (1 - cam.anchor)) / cam.ppm;
+    cx.fillStyle = 'rgba(255,255,255,.45)'; cx.font = '700 10px system-ui, sans-serif'; cx.textAlign = 'right';
+    for (let m = Math.max(step, Math.ceil(bottom / step) * step); m <= top; m += step) {
+      const [, y] = w2s(0, m);
+      cx.fillRect(W - 8, y, 8, 1.5);
+      cx.fillText(fmt(m) + ' m', W - 11, y + 3.5);
+    }
+  }
+
+  // Coins you grab fly up into the counter.
+  function drawUiCoins() {
+    if (!uiCoins.length) return;
+    const r = $('hud-coins').getBoundingClientRect();
+    const tx = r.left + 18, ty = r.top + r.height / 2;
+    for (const u of uiCoins) {
+      const e = u.t * u.t * (3 - 2 * u.t);
+      const x = lerp(u.x, tx, e), y = lerp(u.y, ty, e) - Math.sin(u.t * Math.PI) * 40;
+      cx.fillStyle = '#b8860b'; cx.beginPath(); cx.arc(x, y, 7, 0, 7); cx.fill();
+      cx.fillStyle = '#ffd23f'; cx.beginPath(); cx.arc(x, y, 5.5, 0, 7); cx.fill();
+    }
+  }
+
+  // Restart a little CSS bounce on an element.
+  function bump(id) {
+    const el = $(id);
+    el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
   }
 
   // Rain, snow and wind only down in the weather (below 2,000 m).
@@ -2303,8 +2619,8 @@
   $('btn-continue').addEventListener('click', goShop);
   $('btn-evolve').addEventListener('click', evolve);
   $('btn-sound').addEventListener('click', cycleSound);
-  $('btn-reset').addEventListener('click', () => {
-    if (window.confirm(T('resetAsk'))) { save = Object.assign(L.freshSave(), { sound: save.sound, tilt: save.tilt }); store(); goShop(); }
+  $('btn-reset').addEventListener('click', async () => {
+    if (await ask(T('resetAsk'))) { save = Object.assign(L.freshSave(), { sound: save.sound, tilt: save.tilt }); store(); goShop(); }
   });
 
   // ---------- TEMPORARY cheat mode: tap the title 5 times. Remove before a store release. ----------
@@ -2353,6 +2669,7 @@
   window.vpBack = function () {
     if (state === 'shop') return 'exit';
     if (!$('splash').classList.contains('gone')) { closeSplash(); return 'ok'; }
+    if (!$('modal').classList.contains('hidden')) { $('modal-no').click(); return 'ok'; }
     if (state === 'ignite' && !ign) { goShop(); return 'ok'; }
     if (state === 'result') { goShop(); return 'ok'; }
     return 'ok';

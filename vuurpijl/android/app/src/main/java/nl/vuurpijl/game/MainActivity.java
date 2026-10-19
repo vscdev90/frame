@@ -15,6 +15,7 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -57,6 +58,9 @@ public class MainActivity extends Activity {
                 return loader.shouldInterceptRequest(request.getUrl());
             }
         });
+
+        // also lets standard JavaScript dialogs show, should the page ever use one
+        web.setWebChromeClient(new WebChromeClient());
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);

@@ -143,6 +143,17 @@
     <div class="splash-tap">Tap to start</div>
   </div>
 
+  <!-- our own yes/no dialog: Android's WebView does not show window.confirm -->
+  <div id="modal" class="hidden">
+    <div class="modal-box">
+      <div id="modal-text"></div>
+      <div class="modal-buttons">
+        <button id="modal-no" class="ghost wide" data-i18n="no">Cancel</button>
+        <button id="modal-yes" class="big" data-i18n="yes">YES</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <script src="logic.js"></script>

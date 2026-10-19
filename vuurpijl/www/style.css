@@ -212,3 +212,23 @@ button.ghost.wide { width: auto; padding: 0 14px; font-size: 1rem; font-weight: 
 .cheats { margin: 12px 0; padding: 12px; border-radius: 16px; background: rgba(255,77,109,.15); border: 2px dashed #ff4d6d; }
 .cheat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .cheat-grid button.on { background: linear-gradient(#ffd23f, #ff8c1a); color: #2b1300; }
+
+/* yes/no dialog */
+#modal { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.6); }
+.modal-box { max-width: 360px; width: 100%; background: linear-gradient(#1c1640, #120d2a); border: 2px solid rgba(199,125,255,.6); border-radius: 20px; padding: 20px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+#modal-text { font-weight: 700; line-height: 1.4; margin-bottom: 18px; }
+.modal-buttons { display: flex; gap: 10px; justify-content: center; }
+.modal-buttons .big { font-size: 1.1rem; padding: 12px 22px; }
+
+/* little bounces: coin counter, wallet, totals, upgraded cards */
+.bump { animation: bump .3s ease-out; }
+@keyframes bump { 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.wallet span, #res-total, #hud-coins { display: inline-block; }
+.upg { position: relative; }
+.upg.bought { animation: bought .5s ease-out; }
+@keyframes bought { 30% { transform: scale(1.06); box-shadow: 0 0 24px rgba(183,255,138,.8); } 100% { transform: scale(1); } }
+.upg .plus {
+  position: absolute; right: 12px; top: 6px; font-weight: 900; color: #b7ff8a; pointer-events: none;
+  animation: plus .8s ease-out forwards;
+}
+@keyframes plus { to { transform: translateY(-26px); opacity: 0; } }
