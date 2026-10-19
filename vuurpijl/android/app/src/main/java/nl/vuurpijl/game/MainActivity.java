@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
 
-        // a voice for the countdown and the moon
+        // a voice for the countdown
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 tts.setLanguage(Locale.US);
@@ -87,7 +87,7 @@ public class MainActivity extends Activity {
             v.vibrate(VibrationEffect.createOneShot(Math.max(1, Math.min(ms, 500)), VibrationEffect.DEFAULT_AMPLITUDE));
         }
 
-        /** Says a line out loud (countdown, the moon). */
+        /** Says a line out loud (the countdown). */
         @JavascriptInterface
         public void speak(String text) {
             if (ttsReady) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "rocket");

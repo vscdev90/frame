@@ -139,7 +139,7 @@
     clearInterval(music.timer);
   }
 
-  // A voice for the countdown and the moon. Android speaks through the app,
+  // A voice for the countdown. Android speaks through the app,
   // browsers through speech synthesis; both stay quiet when the sound is off.
   function say(text) {
     if (!save.sound) return;
@@ -263,7 +263,7 @@
   let weather = { id: 'clear', wind: 0 };
   let fl = null, combo = 0, comboT = 0, bonusT = 0, bonusSpawn = 0, bossMet = {};
   let flightT = 0, ghostRec = [], ghostNext = 0;
-  let cd = null, saidMoon = false, quoteT = 0;   // space-rocket countdown, the moon quote
+  let cd = null;   // space-rocket countdown
   const snow = Array.from({ length: 70 }, (_, i) => ({ x: hash(i + 2000), y: hash(i + 2100), s: 1 + hash(i + 2200) * 2.5 }));
 
   const stars = Array.from({ length: 160 }, (_, i) => ({ x: hash(i), y: hash(i + 500), s: 0.5 + hash(i + 900) * 1.8, p: hash(i + 1300) * 6.28 }));
@@ -660,7 +660,7 @@
     flightT = 0; ghostRec = []; ghostNext = 0;
     nextSpawnY = 12;
     objects = [];
-    flightZone = 0; reachedEnd = false; stageShown = 1; lastPuff = false; saidMoon = false;
+    flightZone = 0; reachedEnd = false; stageShown = 1; lastPuff = false;
     state = 'flight';
     if (save.flights < 3) {
       $('hud-zone').textContent = T('steerHint');
@@ -669,7 +669,6 @@
     }
     show('hud', true);
     show('btn-boom', !!save.infFuel);
-    $('hud-quote').classList.remove('show'); quoteT = 0;
     $('hud-wx').textContent = weather.id === 'clear' ? '' : M.WEATHER[weather.id].icon + ' ' + M.WEATHER[weather.id].name;
     $('hud-combo').textContent = '';
     updateTurboBtn();
@@ -2058,8 +2057,6 @@
       if (cd.t >= 3.6) { state = 'ignite'; liftoff(cd.boost, cd.label); }
     }
 
-    if (quoteT > 0) { quoteT -= dt; if (quoteT <= 0) $('hud-quote').classList.remove('show'); }
-
     if (state === 'ignite' && ign && !ign.done) {
       ign.t += dt;
       if (ign.t >= ign.dur) launch(0.9, T('late'));
@@ -2071,13 +2068,6 @@
       const n = 3;
       flightT += dt;
       if (save.infFuel && !reachedEnd) rocket.fuel = Math.max(rocket.fuel, 0.5); // cheat
-      if (!saidMoon && rocket.y >= L.MOON_Y) {
-        saidMoon = true;
-        say("That's one small step for man, one giant leap for mankind.");
-        $('hud-quote').textContent = T('moonQuote');
-        $('hud-quote').classList.add('show');
-        quoteT = 6;
-      }
       if (flightT >= ghostNext && ghostRec.length < 4000) {
         ghostRec.push([Math.round(rocket.x * 10) / 10, Math.round(rocket.y * 10) / 10]);
         ghostNext += 0.1;
