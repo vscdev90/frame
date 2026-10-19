@@ -303,10 +303,13 @@
 
   function firework(ax, ay, scale, pal, mode) {
     const dim = mode === 'dim', small = mode === 'small';
-    const rings = dim || small ? 1 : 2 + Math.floor(scale);
+    // Late-game rockets have huge scales; cap it so the rings stay on screen and the
+    // particle budget (1,400) is not blown, which used to leave nothing visible.
+    scale = Math.min(scale, 3.2);
+    const rings = dim || small ? 1 : Math.min(4, 2 + Math.floor(scale));
     for (let k = 0; k < rings; k++) {
       const n = Math.floor((dim ? 26 : small ? 22 : 50) + scale * 18);
-      const sp = (dim ? 90 : small ? 280 : 520 + scale * 140) * (1 - k * 0.22);
+      const sp = (dim ? 90 : small ? 280 : 520 + scale * 140) * (1 - k * 0.18);
       const col = pal[k % pal.length];
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + k * 0.3;
@@ -1035,12 +1038,12 @@
     p.fillStyle = '#fff';
     for (const s of stars) p.fillRect(s.x * 720, s.y * 720, s.s * 1.5, s.s * 1.5);
     p.textAlign = 'center';
-    p.font = '900 64px system-ui, sans-serif'; p.fillStyle = '#ffd23f'; p.fillText('ROCKET!', 360, 90);
-    p.font = '800 36px system-ui, sans-serif'; p.fillStyle = '#fff'; p.fillText(T('shareTitle'), 360, 170);
-    p.font = '900 96px system-ui, sans-serif'; p.fillStyle = '#fff'; p.fillText(fmt(h) + ' m', 360, 270);
-    p.font = '800 40px system-ui, sans-serif'; p.fillStyle = '#80ffdb'; p.fillText(I.zone(L.zoneIndex(h), L), 360, 330);
+    p.font = "72px 'Lilita One', sans-serif"; p.fillStyle = '#ffd23f'; p.fillText('ROCKET!', 360, 90);
+    p.font = "36px 'Lilita One', sans-serif"; p.fillStyle = '#fff'; p.fillText(T('shareTitle'), 360, 170);
+    p.font = "104px 'Lilita One', sans-serif"; p.fillStyle = '#fff'; p.fillText(fmt(h) + ' m', 360, 270);
+    p.font = "42px 'Lilita One', sans-serif"; p.fillStyle = '#80ffdb'; p.fillText(I.zone(L.zoneIndex(h), L), 360, 330);
     drawRocket(p, 360, 600, 0.15, EVO(), 3, 1, TYPE(), 1);
-    p.font = '800 34px system-ui, sans-serif'; p.fillStyle = '#ffd23f'; p.fillText(T('shareBeat'), 360, 690);
+    p.font = "36px 'Lilita One', sans-serif"; p.fillStyle = '#ffd23f'; p.fillText(T('shareBeat'), 360, 690);
     return c.toDataURL('image/png');
   }
 
@@ -1217,6 +1220,9 @@
     } else {
       c.fillRect(-7, -44, 14, 44);
     }
+    c.shadowColor = 'transparent';
+    c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = 1.1;
+    c.strokeRect(-7, -44, 14, two && staged ? 24 : 44);
     c.shadowColor = 'transparent';
     // gloss: a light streak and a dark edge make the tube look round
     c.fillStyle = 'rgba(255,255,255,.32)'; c.fillRect(-4.5, two && staged ? -42 : -42, 2, two && !staged ? 20 : 38);
@@ -2090,21 +2096,43 @@
       cx.save(); cx.translate(x, y);
       switch (o.type) {
         case 'coin': {
+          // a spinning gold coin: dark outline, rim, shaded face, a stamped ring and a glint
           const sq = Math.abs(Math.cos(time * 4 + o.x));
-          cx.fillStyle = '#b8860b'; cx.beginPath(); cx.ellipse(0, 0, 11 * sq + 2, 11, 0, 0, 7); cx.fill();
-          cx.fillStyle = '#ffd23f'; cx.beginPath(); cx.ellipse(0, 0, 9 * sq + 1, 9, 0, 0, 7); cx.fill();
+          cx.fillStyle = '#6b4300'; cx.beginPath(); cx.ellipse(0, 0, 12 * sq + 2.5, 12.5, 0, 0, 7); cx.fill();
+          cx.fillStyle = '#d99a00'; cx.beginPath(); cx.ellipse(0, 0, 11 * sq + 1.5, 11, 0, 0, 7); cx.fill();
+          const cg = cx.createLinearGradient(0, -9, 0, 9);
+          cg.addColorStop(0, '#fff2a8'); cg.addColorStop(0.5, '#ffd23f'); cg.addColorStop(1, '#f2a500');
+          cx.fillStyle = cg; cx.beginPath(); cx.ellipse(0, 0, 8.5 * sq + 1, 8.5, 0, 0, 7); cx.fill();
+          if (sq > 0.35) {
+            cx.strokeStyle = 'rgba(160,100,0,.6)'; cx.lineWidth = 1.2;
+            cx.beginPath(); cx.ellipse(0, 0, 5.5 * sq, 5.5, 0, 0, 7); cx.stroke();
+          }
+          cx.fillStyle = 'rgba(255,255,255,.75)'; cx.beginPath(); cx.ellipse(-3 * sq, -4, 2 * sq + 0.5, 1.4, -0.5, 0, 7); cx.fill();
+          if (Math.sin(time * 3 + o.x * 7) > 0.97) { // twinkle
+            cx.fillStyle = '#fff'; cx.fillRect(4 * sq - 0.5, -9, 1, 6); cx.fillRect(4 * sq - 3, -6.5, 6, 1);
+          }
           break;
         }
         case 'fuel':
-          cx.fillStyle = '#d62828'; roundRect(-10, -13, 20, 26, 4); cx.fill();
-          cx.fillStyle = '#fff'; cx.font = 'bold 13px sans-serif'; cx.textAlign = 'center'; cx.fillText('🧨', 0, 5);
+          cx.fillStyle = '#5a0b0b'; roundRect(-12, -15, 24, 30, 5); cx.fill();
+          { const fg = cx.createLinearGradient(-10, 0, 10, 0); fg.addColorStop(0, '#ff5a5a'); fg.addColorStop(0.5, '#e02525'); fg.addColorStop(1, '#a01010'); cx.fillStyle = fg; }
+          roundRect(-10, -13, 20, 26, 4); cx.fill();
+          cx.fillStyle = '#ffd23f'; cx.fillRect(-10, -4, 20, 7);
+          cx.fillStyle = '#5a0b0b'; cx.font = "9px 'Lilita One', sans-serif"; cx.textAlign = 'center'; cx.fillText('TNT', 0, 2.5);
+          cx.fillStyle = 'rgba(255,255,255,.35)'; cx.fillRect(-7, -11, 2.5, 20);
+          cx.strokeStyle = '#3b2a1a'; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(0, -13); cx.quadraticCurveTo(4, -19, 2, -22); cx.stroke();
+          if (Math.random() < 0.6) { cx.fillStyle = Math.random() < 0.5 ? '#fff6c8' : '#ffb703'; cx.beginPath(); cx.arc(2 + rand(-1.5, 1.5), -22 + rand(-1.5, 1.5), 1.8, 0, 7); cx.fill(); }
           break;
         case 'star':
-          cx.rotate(time * 2);
-          cx.fillStyle = '#80d8ff';
+          cx.rotate(Math.sin(time * 2) * 0.4);
+          { const sg = cx.createRadialGradient(0, 0, 0, 0, 0, 26); sg.addColorStop(0, 'rgba(128,216,255,.45)'); sg.addColorStop(1, 'rgba(128,216,255,0)'); cx.fillStyle = sg; cx.beginPath(); cx.arc(0, 0, 26, 0, 7); cx.fill(); }
           cx.beginPath();
-          for (let i = 0; i < 10; i++) { const r = i % 2 ? 6 : 15, a = (i / 10) * Math.PI * 2; cx.lineTo(Math.sin(a) * r, -Math.cos(a) * r); }
+          for (let i = 0; i < 10; i++) { const r = i % 2 ? 6.5 : 15, a = (i / 10) * Math.PI * 2; cx.lineTo(Math.sin(a) * r, -Math.cos(a) * r); }
+          cx.closePath();
+          { const sg = cx.createLinearGradient(0, -15, 0, 15); sg.addColorStop(0, '#e0f7ff'); sg.addColorStop(1, '#3a86ff'); cx.fillStyle = sg; }
           cx.fill();
+          cx.strokeStyle = '#123a7a'; cx.lineWidth = 1.6; cx.stroke();
+          cx.fillStyle = '#123a7a'; cx.fillRect(-3.5, -2, 1.6, 3); cx.fillRect(2, -2, 1.6, 3);
           break;
         case 'bird': {
           cx.scale(o.dir, 1);
@@ -2123,9 +2151,12 @@
           cx.fillStyle = Math.sin(o.t * 6) > 0 ? '#ff1744' : '#333'; cx.fillRect(-28, -15, 3, 3);
           break;
         case 'balloon':
-          cx.fillStyle = '#ff4d6d'; cx.beginPath(); cx.ellipse(0, -6, 14, 17, 0, 0, 7); cx.fill();
           cx.strokeStyle = '#ccc'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(0, 11); cx.lineTo(0, 24); cx.stroke();
-          cx.fillStyle = '#8d6e63'; cx.fillRect(-4, 22, 8, 6);
+          { const bg = cx.createRadialGradient(-5, -12, 2, 0, -6, 18); bg.addColorStop(0, '#ff9aae'); bg.addColorStop(1, '#c9183f'); cx.fillStyle = bg; }
+          cx.beginPath(); cx.ellipse(0, -6, 14, 17, 0, 0, 7); cx.fill();
+          cx.strokeStyle = '#6a0a20'; cx.lineWidth = 1.5; cx.stroke();
+          cx.fillStyle = 'rgba(255,255,255,.55)'; cx.beginPath(); cx.ellipse(-6, -13, 3, 5, -0.4, 0, 7); cx.fill();
+          cx.fillStyle = '#8d6e63'; cx.fillRect(-4, 22, 8, 6); cx.strokeStyle = '#3e2a20'; cx.strokeRect(-4, 22, 8, 6);
           break;
         case 'sat':
           cx.rotate(o.t * 0.6);
@@ -2217,7 +2248,7 @@
     cx.globalAlpha = 1;
     cx.globalCompositeOperation = 'source-over';
     cx.textAlign = 'center';
-    cx.font = '900 20px system-ui, sans-serif';
+    cx.font = "20px 'Lilita One', sans-serif";
     for (const t of texts) {
       const [x, y] = w2s(t.ax, t.ay);
       cx.globalAlpha = clamp(t.life * 1.5, 0, 1);
@@ -2273,6 +2304,7 @@
   // ---------- main loop ----------
   function update(dt) {
     // a brief hit-stop when the rocket explodes: the world nearly freezes
+    const realDt = dt; // the explosion's own clock (and tap-to-skip) keeps real time
     if (hitStop > 0) { hitStop -= dt; dt *= 0.2; }
     punch *= Math.exp(-5 * dt);
     shootNext -= dt;
@@ -2394,7 +2426,7 @@
     }
 
     if (state === 'boom') {
-      boomT += dt;
+      boomT += realDt;
       if (boomT > (reachedEnd ? 2.4 : 1.2)) showResult();
     }
 
@@ -2468,7 +2500,7 @@
     cx.strokeStyle = 'rgba(255,210,63,.8)'; cx.lineWidth = 2; cx.setLineDash([10, 8]); cx.lineDashOffset = -time * 30;
     cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke();
     cx.setLineDash([]);
-    cx.fillStyle = '#ffd23f'; cx.font = '900 13px system-ui, sans-serif'; cx.textAlign = 'right';
+    cx.fillStyle = '#ffd23f'; cx.font = "13px 'Lilita One', sans-serif"; cx.textAlign = 'right';
     cx.fillText('🏆 ' + T('record').toUpperCase() + ' ' + fmt(recordAtLaunch) + ' m', W - 10, y - 6);
     cx.restore();
   }
@@ -2478,7 +2510,7 @@
   function drawRuler() {
     const step = RULER.find((s) => s * cam.ppm >= 90) || 20000;
     const top = cam.y + (H * cam.anchor) / cam.ppm, bottom = cam.y - (H * (1 - cam.anchor)) / cam.ppm;
-    cx.fillStyle = 'rgba(255,255,255,.45)'; cx.font = '700 10px system-ui, sans-serif'; cx.textAlign = 'right';
+    cx.fillStyle = 'rgba(255,255,255,.45)'; cx.font = "700 10px Fredoka, sans-serif"; cx.textAlign = 'right';
     for (let m = Math.max(step, Math.ceil(bottom / step) * step); m <= top; m += step) {
       const [, y] = w2s(0, m);
       cx.fillRect(W - 8, y, 8, 1.5);
@@ -2545,7 +2577,7 @@
     cx.globalAlpha = 0.3;
     drawRocket(cx, x, y, Math.atan2(b[0] - a[0], b[1] - a[1] || 0.001) * 0.5, EVO(), 1, 0, L.TYPES[g.type] || L.TYPES[0], 1);
     cx.globalAlpha = 0.7;
-    cx.fillStyle = '#fff'; cx.font = '800 11px system-ui, sans-serif'; cx.textAlign = 'center';
+    cx.fillStyle = '#fff'; cx.font = "11px 'Lilita One', sans-serif"; cx.textAlign = 'center';
     cx.fillText(T('best') + ' ' + fmt(save.record) + ' m', x, y + 18);
     cx.restore();
   }
@@ -2685,6 +2717,12 @@
   window.__vp = {
     get state() { return state; }, get rocket() { return rocket; }, get save() { return save; },
     get combo() { return combo; }, get music() { return music.on; }, closeSplash, get bonusT() { return bonusT; }, get weather() { return weather; },
+    // for the store-art script: draw any rocket on any canvas, and jump to a height
+    paint(c, x, y, o) { drawRocket(c, x, y, o.ang || 0, L.EVOS[o.evo || 0], o.scale || 1, o.flame || 0, L.TYPES[o.type || 0], 1); },
+    warp(y) {
+      rocket.y = rocket.maxY = y; cam.y = y; nextSpawnY = y + 20; objects = []; recordAtLaunch = Math.max(recordAtLaunch, y + 400);
+      rocket.vy = Math.max(rocket.vy, 300); rocket.fuel = Math.max(rocket.fuel, 3);
+    },
     spawnAhead(type, extra, aheadPx) {
       objects.push(Object.assign({ type, x: rocket.x, y: rocket.y + (aheadPx || 40) / cam.ppm, r: 16, vxs: 0, v: 1, t: 0 }, extra || {}));
     },

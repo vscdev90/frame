@@ -1,8 +1,13 @@
+/* Lilita One and Fredoka, both SIL Open Font License (see fonts/) */
+@font-face { font-family: 'Lilita One'; src: url(fonts/lilita-one.woff2) format('woff2'); font-display: swap; }
+@font-face { font-family: 'Fredoka'; src: url(fonts/fredoka-500.woff2) format('woff2'); font-weight: 400 600; font-display: swap; }
+@font-face { font-family: 'Fredoka'; src: url(fonts/fredoka-700.woff2) format('woff2'); font-weight: 700 900; font-display: swap; }
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
   margin: 0; height: 100%; overflow: hidden;
   background: #0b1230; color: #fff;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: Fredoka, system-ui, sans-serif;
   user-select: none; -webkit-user-select: none; touch-action: none;
 }
 canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -232,3 +237,26 @@ button.ghost.wide { width: auto; padding: 0 14px; font-size: 1rem; font-weight: 
   animation: plus .8s ease-out forwards;
 }
 @keyframes plus { to { transform: translateY(-26px); opacity: 0; } }
+
+/* ---------- game look: display font, glossy buttons, framed cards ---------- */
+.title, .splash-title, button.big, .pill, .wallet, .result-title, #countdown, #toast, #hud-zone, #hud-combo,
+.res-total, .evo-name, .p-title, .chip .cn, .upg .top, .sec, .sub, #btn-turbo, .ignite-hint, .splash-tap, .universe {
+  font-family: 'Lilita One', Fredoka, sans-serif; font-weight: 400; letter-spacing: .02em;
+}
+button.big {
+  background: linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,0) 52%), linear-gradient(#ffd23f, #ff8c1a);
+  border: 2px solid rgba(120,40,0,.35); text-shadow: 0 1px 0 rgba(255,255,255,.5);
+}
+button.buy {
+  background: linear-gradient(rgba(255,255,255,.4), rgba(255,255,255,0) 55%), linear-gradient(#b7ff8a, #4cc9f0 160%);
+  border: 2px solid rgba(0,80,40,.25); font-family: 'Lilita One', Fredoka, sans-serif; font-weight: 400; letter-spacing: .02em;
+}
+button.buy:disabled { background: rgba(255,255,255,.12); border-color: transparent; }
+.upg, .chip, .mission, .evo, .badge, .planet {
+  border: 1px solid rgba(255,255,255,.09);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 16px rgba(0,0,0,.25);
+}
+.evo { background: radial-gradient(circle at 20% 30%, rgba(255,210,63,.18), rgba(255,255,255,.05) 60%); }
+.panel { background: radial-gradient(circle at 50% -10%, rgba(119,60,200,.45), transparent 55%), linear-gradient(rgba(11,18,48,.94), rgba(30,16,50,.97)); }
+.pill { border: 1px solid rgba(255,255,255,.12); box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+.title, .splash-title { text-shadow: 0 4px 0 #b34d00, 0 8px 18px rgba(0,0,0,.5); }

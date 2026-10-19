@@ -49,6 +49,20 @@ Elke push naar `vuurpijl/` bouwt via GitHub Actions (`.github/workflows/vuurpijl
 **Releases** als `Vuurpijl.apk`. Download hem op je telefoon, open hem en sta "installeren uit onbekende bronnen" toe.
 Nieuwe versies installeren over de oude heen; je voortgang blijft bewaard.
 
+## Play Store-plaatjes
+
+`store/` bevat het icoon (512×512), de banner (1024×500) en zes screenshots (1080×1920) met koppen, allemaal gemaakt
+uit het echte spel. Opnieuw maken (bijvoorbeeld na nieuwe graphics), met het spel lokaal geserveerd:
+
+```
+cd vuurpijl/www && python3 -m http.server 8897 &
+node vuurpijl/tools/store-art.mjs
+```
+
+Dat script maakt ook het app-icoon (`android/app/src/main/res/mipmap-*`).
+
+Lettertypes: Lilita One en Fredoka, beide onder de SIL Open Font License (zie `www/fonts/`).
+
 ## Structuur
 
 | Pad | Wat |
