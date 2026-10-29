@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright 1.56 does not support ubuntu-latest (26.04) yet
     env:
       # true once the Play Store upload key is stored as GitHub secrets (see vuurpijl/DEPLOY.md)
       HAS_UPLOAD_KEY: ${{ secrets.UPLOAD_KEYSTORE_BASE64 != '' }}
