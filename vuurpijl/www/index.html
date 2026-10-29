@@ -19,10 +19,9 @@
     <div class="fuelbar"><div id="hud-fuel"></div></div>
     <div id="hud-goal"></div>
     <div class="hud-row small">
-      <div id="hud-wx"></div>
-      <div id="hud-power"></div>
+      <div><span id="hud-wx"></span> <span id="hud-power"></span></div>
+      <div id="hud-combo"></div>
     </div>
-    <div id="hud-combo"></div>
     <div id="hud-zone"></div>
     <button id="btn-turbo" class="hidden">⚡ TURBO <span id="turbo-n"></span></button>
   </div>
@@ -33,111 +32,110 @@
     <button id="btn-light" class="big" data-i18n="lightBtn">🔥 LIGHT FUSE</button>
   </div>
 
-  <!-- workshop / upgrade shop -->
-  <div id="shop" class="panel hidden">
-    <header class="shop-top">
-      <div class="title"><span data-i18n="title">ROCKET</span><span>!</span></div>
-      <div class="top-right">
-        <button id="btn-collection" class="ghost lang" aria-label="Collection">🏆</button>
-        <button id="btn-tilt" class="ghost lang" aria-label="Tilt">📱</button>
-        <div class="wallet"><span id="shop-coins">0</span> 🪙</div>
+  <!-- the shed: your rocket on the pad, the upgrades below it, everything else behind a few icons -->
+  <div id="shop" class="hidden">
+    <header class="shop-head">
+      <div class="wallet"><span id="shop-coins">0</span> 🪙</div>
+      <div class="head-mid">
+        <div class="record"><span data-i18n="record">Record</span> <b id="shop-record">0 m</b></div>
+        <div class="progress"><div id="moon-progress"></div><span class="moon-ico" id="goal-ico">🌕</span></div>
+        <div class="universe" id="shop-universe"></div>
       </div>
+      <button id="btn-sound" class="ghost round" aria-label="Sound">🔊</button>
     </header>
-    <div class="record"><span data-i18n="record">Record</span>: <b id="shop-record">0 m</b> · <span data-i18n="flights">Flights</span>: <b id="shop-flights">0</b></div>
-    <div class="progress"><div id="moon-progress"></div><span class="moon-ico" id="goal-ico">🌕</span></div>
-    <div class="universe" id="shop-universe"></div>
+    <section class="sheet">
+      <!-- everything besides the upgrades: a row of icons just above the sheet -->
+      <nav class="rail">
+        <button id="btn-missions" class="rail-btn hidden" aria-label="Daily missions">📋<i class="dot hidden"></i></button>
+        <button id="btn-pass" class="rail-btn hidden" aria-label="Rocket Pass">🎫<i class="dot hidden"></i></button>
+        <button id="btn-event" class="rail-btn hidden" aria-label="Event"><span id="event-ico">🎃</span><small id="event-count"></small></button>
+        <button id="btn-hangar" class="rail-btn hidden" aria-label="Rockets and launch sites">🚀<i class="dot hidden"></i></button>
+        <button id="btn-collection" class="rail-btn" aria-label="Collection">🏆<i class="dot hidden"></i></button>
+        <div id="prestige" class="hidden"><button id="btn-prestige" class="rail-btn glow" aria-label="New universe">🌌</button></div>
+      </nav>
+      <div class="evo">
+        <div class="evo-info"><b class="evo-name" id="evo-name"></b> <span class="evo-mult" id="evo-mult"></span><div class="evo-need" id="evo-need"></div></div>
+        <button id="btn-evolve" class="buy"></button>
+      </div>
+      <section class="upgrades" id="upgrades"></section>
+      <div class="launch-row">
+        <section id="ad-boost" class="adpill hidden"><span id="ad-boost-text"></span><button id="btn-ad-boost" class="buy">📺 FREE</button></section>
+        <button id="btn-launch" class="big" data-i18n="launchBtn">🚀 LAUNCH</button>
+      </div>
+    </section>
+  </div>
 
-    <!-- a seasonal event, only while it runs -->
-    <section id="event" class="event hidden">
+  <!-- daily missions -->
+  <div id="missionsview" class="panel hidden">
+    <header class="shop-top">
+      <div class="title small" data-i18n="missionsTitle">Daily missions</div>
+      <button class="ghost lang" data-close="missionsview" aria-label="Close">✕</button>
+    </header>
+    <section id="missions"></section>
+  </div>
+
+  <!-- what you launch, and from where -->
+  <div id="hangar" class="panel hidden">
+    <header class="shop-top">
+      <div class="title small" data-i18n="hangarTitle">Hangar</div>
+      <button class="ghost lang" data-close="hangar" aria-label="Close">✕</button>
+    </header>
+    <div class="sub" data-i18n="catFire">Fireworks</div>
+    <section class="chips grid" id="types-fire"></section>
+    <div class="sub" data-i18n="catFun">Crazy stuff</div>
+    <section class="chips grid" id="types-fun"></section>
+    <div class="sub" data-i18n="catMachine">Machines</div>
+    <section class="chips grid" id="types-machine"></section>
+    <h3 class="sec" data-i18n="siteHead">Launch site</h3>
+    <section class="chips grid" id="sites"></section>
+  </div>
+
+  <!-- a seasonal event, only while it runs -->
+  <div id="eventview" class="panel hidden">
+    <header class="shop-top">
+      <div class="title small" id="event-head"></div>
+      <button class="ghost lang" data-close="eventview" aria-label="Close">✕</button>
+    </header>
+    <section id="event" class="event">
       <div class="ev-top"><b id="event-title"></b><span id="event-days"></span></div>
       <div class="ev-text" id="event-text"></div>
       <div class="bar"><i id="event-bar"></i></div>
     </section>
-    <!-- Rocket Pass: tap for all tiers -->
-    <section id="pass" class="pass" role="button">
-      <div class="ev-top"><b data-i18n="passHead">🎫 ROCKET PASS</b><span id="pass-days"></span></div>
-      <div class="ps-row"><b id="pass-tier"></b><span id="pass-next"></span><span class="ps-more">›</span></div>
-      <div class="bar"><i id="pass-bar"></i></div>
-    </section>
-
-    <h3 class="sec" data-i18n="missionsHead">Daily missions</h3>
-    <section id="missions"></section>
-
-    <!-- rewarded video (Android app only): a free boost for the next flight -->
-    <section id="ad-boost" class="mission adcard hidden">
-      <div class="mt" id="ad-boost-text"></div>
-      <button id="btn-ad-boost" class="buy">📺 FREE</button>
-    </section>
-
-    <section id="prestige" class="prestige hidden">
-      <div class="p-title" data-i18n="prestigeHead">🌌 New universe</div>
-      <div class="p-desc" data-i18n="prestigeDesc"></div>
-      <button id="btn-prestige" class="buy"></button>
-    </section>
-
-    <section class="evo">
-      <canvas id="evo-preview" width="120" height="160"></canvas>
-      <div class="evo-info">
-        <div class="evo-label" data-i18n="yourRocket">Your rocket</div>
-        <div class="evo-name" id="evo-name"></div>
-        <div class="evo-mult" id="evo-mult"></div>
-        <button id="btn-evolve" class="buy"></button>
-        <div class="evo-need" id="evo-need"></div>
-      </div>
-    </section>
-
-    <h3 class="sec" data-i18n="siteHead">Launch site</h3>
-    <section class="chips" id="sites"></section>
-    <h3 class="sec" data-i18n="typeHead">What do you launch?</h3>
-    <div class="sub" data-i18n="catFire">Fireworks</div>
-    <section class="chips" id="types-fire"></section>
-    <div class="sub" data-i18n="catFun">Crazy stuff</div>
-    <section class="chips" id="types-fun"></section>
-    <div class="sub" data-i18n="catMachine">Machines</div>
-    <section class="chips" id="types-machine"></section>
-    <h3 class="sec" data-i18n="upgHead">Upgrades</h3>
-    <section class="upgrades" id="upgrades"></section>
-
-    <footer class="shop-bottom">
-      <button id="btn-sound" class="ghost" aria-label="Sound">🔊</button>
-      <button id="btn-launch" class="big" data-i18n="launchBtn">🚀 LAUNCH</button>
-      <button id="btn-reset" class="ghost" aria-label="Start over">↺</button>
-    </footer>
+    <div class="ev-how" id="event-how"></div>
+    <section class="ev-steps" id="event-steps"></section>
   </div>
 
-  <!-- flight result -->
+  <!-- flight result: how high, how much, and straight back up -->
   <div id="result" class="panel card hidden">
     <div class="result-title" id="res-title">BANG!</div>
-    <div class="res-line"><span data-i18n="resHeight">Height</span><b id="res-height"></b></div>
-    <div class="res-line"><span data-i18n="resCoins">Coins collected</span><b id="res-coins"></b></div>
-    <div class="res-line"><span data-i18n="resBonus">Bang bonus</span><b id="res-bonus"></b></div>
-    <div class="res-line" id="res-zone-line"><span data-i18n="resZone">New zone</span><b id="res-zone"></b></div>
-    <div class="res-line" id="res-combo-line"><span data-i18n="resCombo">Best combo</span><b id="res-combo"></b></div>
-    <div class="res-line"><span data-i18n="resPass">🎫 Rocket Pass</span><b id="res-pass"></b></div>
-    <div class="res-line" id="res-ach-line"><span data-i18n="resAch">Achievements</span><b id="res-ach"></b></div>
-    <div class="res-total"><span data-i18n="resTotal">Total</span><b id="res-total"></b></div>
-    <div class="res-badges" id="res-badges"></div>
+    <div class="res-height" id="res-height"></div>
     <div class="res-record hidden" id="res-record" data-i18n="newRecord">🏆 NEW RECORD!</div>
     <div class="res-close hidden" id="res-close"></div>
+    <div class="res-zone hidden" id="res-zone-line"><span id="res-zone"></span></div>
+    <div class="res-total"><b id="res-total"></b></div>
+    <div class="res-details">
+      <span>🪙 <b id="res-coins"></b></span><span>💥 <b id="res-bonus"></b></span><span>🔥 <b id="res-combo"></b></span><span id="res-pass-wrap">🎫 <b id="res-pass"></b></span>
+    </div>
+    <div class="res-badges hidden" id="res-ach-line"><span id="res-badges"></span> <b id="res-ach"></b></div>
     <!-- the next thing to buy, right here, so one more flight is always one tap away -->
     <div class="res-next" id="res-next">
       <div class="rn-text" id="res-next-text"></div>
       <div class="bar"><i id="res-next-bar"></i></div>
       <button id="btn-res-buy" class="buy hidden"></button>
     </div>
+    <button id="btn-again" class="big again" data-i18n="again">🚀 FLY AGAIN</button>
     <div class="res-buttons">
       <button id="btn-share" class="ghost wide" data-i18n="share">📤 SHARE</button>
       <button id="btn-ad-double" class="buy hidden" data-i18n="adDouble">📺 2× COINS</button>
       <button id="btn-continue" class="ghost wide" data-i18n="toShed">🛠️ SHED</button>
     </div>
-    <button id="btn-again" class="big again" data-i18n="again">🚀 FLY AGAIN</button>
   </div>
 
   <!-- collection: skins, achievements, star map -->
   <div id="collection" class="panel hidden">
     <header class="shop-top">
       <div class="title small" data-i18n="collection">Collection</div>
-      <button id="btn-close-collection" class="ghost lang" aria-label="Close">✕</button>
+      <button id="btn-close-collection" class="ghost lang" data-close="collection" aria-label="Close">✕</button>
     </header>
     <div class="record" id="col-stats"></div>
     <h3 class="sec" data-i18n="skinsHead">Skins</h3>
@@ -146,16 +144,26 @@
     <section class="starmap" id="starmap"></section>
     <h3 class="sec" data-i18n="achHead">Achievements</h3>
     <section class="badges" id="badges"></section>
-    <button id="btn-notify" class="ghost wide privacy hidden"></button>
-    <button id="btn-privacy" class="ghost wide privacy hidden" data-i18n="privacy">Privacy &amp; ad settings</button>
+    <h3 class="sec" data-i18n="settingsHead">Settings</h3>
+    <section class="settings">
+      <button id="btn-tilt" class="ghost wide"></button>
+      <button id="btn-notify" class="ghost wide hidden"></button>
+      <button id="btn-privacy" class="ghost wide hidden" data-i18n="privacy">Privacy &amp; ad settings</button>
+      <button id="btn-reset" class="ghost wide danger" data-i18n="resetBtn">↺ Start over</button>
+    </section>
   </div>
 
   <!-- Rocket Pass: every tier and its prize -->
   <div id="passview" class="panel hidden">
     <header class="shop-top">
       <div class="title small" data-i18n="passTitle">Rocket Pass</div>
-      <button id="btn-close-pass" class="ghost lang" aria-label="Close">✕</button>
+      <button id="btn-close-pass" class="ghost lang" data-close="passview" aria-label="Close">✕</button>
     </header>
+    <section id="pass" class="pass">
+      <div class="ev-top"><b id="pass-tier"></b><span id="pass-days"></span></div>
+      <div class="ev-text" id="pass-next"></div>
+      <div class="bar"><i id="pass-bar"></i></div>
+    </section>
     <div class="record" id="pass-info"></div>
     <section class="tiers" id="pass-tiers"></section>
   </div>

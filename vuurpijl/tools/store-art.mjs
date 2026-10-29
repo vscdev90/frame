@@ -147,6 +147,8 @@ console.log('icons and feature graphic done');
 
 // ---------- screenshots of the real game, with a caption on top ----------
 const page = await browser.newPage({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+// an ordinary day in June: no seasonal event in the store pictures
+await page.clock.setFixedTime(new Date(2026, 5, 15, 12, 0));
 const state = () => page.evaluate(() => window.__vp.state);
 const setSave = (src) => page.evaluate((src) => {
   const s = window.__vp.save; new Function('s', src)(s); localStorage.setItem('vuurpijl-save-v1', JSON.stringify(s));
@@ -210,6 +212,7 @@ await grab('DODGE GIANT BOSSES', 'Space whales, motherships, seagulls…');
 
 // 6. the shed full of crazy things to launch
 await fresh('s.site = 3; s.type = 8;');
+await page.click('#btn-hangar');
 await page.evaluate(() => document.getElementById('types-fun').scrollIntoView({ block: 'center' }));
 await page.waitForTimeout(400);
 await grab('20 CRAZY THINGS TO LAUNCH', 'Farting cows, toilets, UFOs and more');

@@ -78,15 +78,14 @@ const after = await page.evaluate(() => window.__vp.save);
 const total = Object.values(after.lv).reduce((a, b) => a + b, 0);
 if (total !== 1) throw new Error('upgrade not applied');
 
-// the Rocket Pass fills up with every flight; tapping it shows all 30 tiers
-const pass0 = await page.evaluate(() => window.__vp.save.pass);
-if (!pass0 || !(pass0.xp > 0 || pass0.tier > 0)) throw new Error('flights gave no pass XP: ' + JSON.stringify(pass0));
-if (!(await page.textContent('#pass')).includes('Tier')) throw new Error('pass card missing');
-await page.click('#pass');
-if (!(await page.isVisible('#passview')) || (await page.$$('#pass-tiers .tier')).length !== 30) throw new Error('pass view should list 30 tiers');
-if (!(await page.$('#pass-tiers .tier.now'))) throw new Error('current tier not marked');
-await shot('17-pass');
-await page.click('#btn-close-pass');
+// features show up one by one: after 3 flights the hangar and the missions, not yet the pass
+if (!(await page.isVisible('#btn-hangar')) || !(await page.isVisible('#btn-missions'))) throw new Error('hangar and missions should be open after 3 flights');
+if (await page.isVisible('#btn-pass')) throw new Error('the pass should wait until flight 5');
+if ((await page.$$('#upgrades .upg')).length !== 8) throw new Error('all eight upgrades after 3 flights');
+await page.click('#btn-hangar');
+if (!(await page.isVisible('#hangar'))) throw new Error('hangar did not open');
+await shot('17-hangar');
+await page.click('[data-close="hangar"]');
 
 // shop shows every launch site and rocket type
 if ((await page.$$('#sites .chip')).length !== 5) throw new Error('expected 5 launch sites');
@@ -103,9 +102,13 @@ if ((await page.$$('#missions .mission')).length !== 4) throw new Error('expecte
 await setSave('const m = s.daily.missions[0]; m.progress = m.target; s.coins = 50000;');
 await reload();
 const before = await page.evaluate(() => window.__vp.save.coins);
+if (!(await page.isVisible('#btn-missions .dot'))) throw new Error('missions icon should show a dot when one can be claimed');
+await page.click('#btn-missions');
 await page.click('#missions .mission:first-child button');
 const claimed = await page.evaluate(() => window.__vp.save);
 if (!claimed.daily.missions[0].claimed || claimed.coins <= before) throw new Error('mission reward not paid');
+await page.click('[data-close="missionsview"]');
+if (await page.isVisible('#missionsview')) throw new Error('missions did not close');
 
 // collection: skins, star map, achievements
 await page.click('#btn-collection');
@@ -177,7 +180,7 @@ await page.click('#btn-continue');
 
 // there is no cheat mode: five taps on the title change nothing
 const before5 = await page.evaluate(() => JSON.stringify(window.__vp.save));
-for (let i = 0; i < 5; i++) await page.click('#shop .title');
+for (let i = 0; i < 5; i++) await page.click('#shop .wallet');
 if (await page.$('#cheats, [data-cheat], #btn-boom')) throw new Error('cheat mode is still in the page');
 if ((await page.evaluate(() => JSON.stringify(window.__vp.save))) !== before5) throw new Error('title taps changed the save');
 
@@ -276,14 +279,24 @@ await page.click('#modal-yes');
 const uni = await page.evaluate(() => window.__vp.save);
 if (uni.prestige !== 1 || uni.coins !== 0 || uni.record !== 0 || uni.skin !== 'shades') throw new Error('new universe did not reset properly');
 if (!(await page.textContent('#shop-universe')).includes('Universe #2')) throw new Error('universe line missing');
-// the reset button asks the same way; cancel keeps everything
+// the reset button (in the collection's settings) asks the same way; cancel keeps everything
+await page.click('#btn-collection');
 await page.click('#btn-reset');
 await page.click('#modal-no');
+await page.click('[data-close="collection"]');
 if ((await page.evaluate(() => window.__vp.save.prestige)) !== 1) throw new Error('cancel should keep the save');
 await shot('16-universe');
 // today's streak popped up after a reload, and the pass went up a tier or more
 if (!popups.some((t) => t.includes('Day 1 streak'))) throw new Error('no daily streak popup: ' + popups.join(', '));
 if (!((await page.evaluate(() => window.__vp.save.pass.tier)) >= 1)) throw new Error('all those flights and missions did not reach pass tier 1');
+// the pass icon opens every tier
+if (!(await page.isVisible('#btn-pass'))) throw new Error('pass icon missing after many flights');
+await page.click('#btn-pass');
+if (!(await page.isVisible('#passview')) || (await page.$$('#pass-tiers .tier')).length !== 30) throw new Error('pass view should list 30 tiers');
+if (!(await page.textContent('#pass')).includes('Tier') || !(await page.$('#pass-tiers .tier.now'))) throw new Error('current tier not shown');
+await shot('17-pass');
+await page.click('[data-close="passview"]');
+if (await page.isVisible('#btn-pass .dot')) throw new Error('the pass dot should clear once seen');
 
 // Halloween (the clock is set to the 30th of October): a banner, sweets, bats, and a witch hat at 120 sweets
 {
@@ -291,13 +304,19 @@ if (!((await page.evaluate(() => window.__vp.save.pass.tier)) >= 1)) throw new E
   ev.on('pageerror', (e) => errors.push('halloween pageerror: ' + e.message));
   ev.on('dialog', (d) => { errors.push('native dialog used: ' + d.message()); d.dismiss(); });
   await ev.clock.setFixedTime(new Date(2026, 9, 30, 12, 0));
+  await ev.addInitScript(() => {
+    if (!localStorage.getItem('vuurpijl-save-v1')) localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ flights: 1, login: { day: '2026-10-30', streak: 1 } }));
+  });
   await ev.goto(BASE + '/index.html');
   if (!(await ev.textContent('#splash-event')).includes('Halloween')) throw new Error('splash does not mention Halloween');
   await ev.click('#splash');
   await ev.waitForTimeout(700);
+  if (SHOTS) await ev.screenshot({ path: SHOTS + '/30-halloween-shop.png' });
+  await ev.click('#btn-event');
   const banner = await ev.textContent('#event');
   if (!(await ev.isVisible('#event')) || !banner.includes('4 days left') || !banner.includes('0/40')) throw new Error('Halloween banner wrong: ' + banner);
-  if (SHOTS) await ev.screenshot({ path: SHOTS + '/30-halloween-shop.png' });
+  if (SHOTS) await ev.screenshot({ path: SHOTS + '/30b-halloween-panel.png' });
+  await ev.click('[data-close="eventview"]');
   await ev.evaluate(() => { Object.assign(window.__vp.save.event, { n: 119, paid: 80 }); });
   await ev.click('#btn-launch'); await ev.click('#btn-light'); await ev.waitForTimeout(500);
   await ev.mouse.click(195, 400);
@@ -320,6 +339,7 @@ if (!((await page.evaluate(() => window.__vp.save.pass.tier)) >= 1)) throw new E
   if (!(await ev.evaluate(() => window.__vp.save.skins.includes('witch')))) throw new Error('witch hat not given');
   await ev.click('#btn-continue');
   if (!(await ev.textContent('#event')).includes('All prizes collected')) throw new Error('banner should say all prizes are collected');
+  if (!(await ev.textContent('#event-count')).includes('120')) throw new Error('the event icon should count the sweets');
   await ev.click('#btn-collection');
   await ev.click('#skins .chip:has-text("Witch hat")');
   if ((await ev.evaluate(() => window.__vp.save.skin)) !== 'witch') throw new Error('could not wear the witch hat');
@@ -334,13 +354,13 @@ if (!((await page.evaluate(() => window.__vp.save.pass.tier)) >= 1)) throw new E
   off.on('pageerror', (e) => errors.push('november pageerror: ' + e.message));
   await off.clock.setFixedTime(new Date(2026, 10, 10, 12, 0));
   await off.addInitScript(() => {
-    if (!localStorage.getItem('vuurpijl-save-v1')) localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ pass: { season: '2026-11', xp: 95, tier: 0 } }));
+    if (!localStorage.getItem('vuurpijl-save-v1')) localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ flights: 10, login: { day: '2026-11-10', streak: 1 }, pass: { season: '2026-11', xp: 95, tier: 0 } }));
   });
   await off.goto(BASE + '/index.html');
   if ((await off.textContent('#splash-event')).trim()) throw new Error('no event in November');
   await off.click('#splash');
   await off.waitForTimeout(700);
-  if ((await off.isVisible('#event')) || (await off.evaluate(() => window.__vp.event)) !== null) throw new Error('Halloween should be over');
+  if ((await off.isVisible('#btn-event')) || (await off.evaluate(() => window.__vp.event)) !== null) throw new Error('Halloween should be over');
   if (!(await off.textContent('#pass-days')).includes('21 days left')) throw new Error('pass days wrong: ' + (await off.textContent('#pass-days')));
   await off.click('#btn-launch'); await off.click('#btn-light'); await off.waitForTimeout(500);
   await off.mouse.click(195, 400);
@@ -348,17 +368,18 @@ if (!((await page.evaluate(() => window.__vp.save.pass.tier)) >= 1)) throw new E
     if ((await off.evaluate(() => window.__vp.state)) === 'boom') await off.mouse.click(195, 400);
     await off.waitForTimeout(150);
   }
-  await off.waitForSelector('#reward:not(.hidden)', { timeout: 3000 });
-  if ((await off.textContent('#reward-title')) !== 'Pass tier 1!') throw new Error('no pass tier popup: ' + (await off.textContent('#reward-title')));
-  await off.click('#reward-ok');
+  for (let k = 0; k < 20 && !(await off.textContent('#toast')).includes('Pass tier 1'); k++) await off.waitForTimeout(150);
+  if (!(await off.textContent('#toast')).includes('Pass tier 1')) throw new Error('no pass tier message: ' + (await off.textContent('#toast')));
+  if (await off.isVisible('#reward')) throw new Error('a pass tier alone should not open a popup');
   await off.click('#btn-continue');
   if (!(await off.textContent('#pass-tier')).includes('Tier 1/30')) throw new Error('pass card not updated');
-  await off.click('#pass');
+  if (!(await off.isVisible('#btn-pass .dot'))) throw new Error('pass icon should show a dot for the new tier');
+  await off.click('#btn-pass');
   if ((await off.$$('#pass-tiers .tier.done')).length !== 1) throw new Error('tier 1 should be done');
   await off.close();
 }
 
-// coming back after three hours, on day 7 of a streak: coins from your fans, then the big daily prize
+// coming back after three hours, on day 7 of a streak: coins from your fans and the big daily prize, in one popup
 {
   const back = await browser.newPage({ viewport: { width: 390, height: 844 } });
   back.on('pageerror', (e) => errors.push('back pageerror: ' + e.message));
@@ -377,13 +398,11 @@ if (!((await page.evaluate(() => window.__vp.save.pass.tier)) >= 1)) throw new E
   const c1 = await back.evaluate(() => window.__vp.save.coins);
   if (!(c1 > 100)) throw new Error('offline coins not paid');
   if (SHOTS) await back.screenshot({ path: SHOTS + '/25-welcome-back.png' });
-  await back.click('#reward-ok');
-  if (!(await back.textContent('#reward-title')).includes('Day 7 streak')) throw new Error('day 7 streak popup missing');
+  if (!(await back.textContent('#reward-text')).includes('Day 7')) throw new Error('day 7 prize missing from the popup');
   if ((await back.$$('#reward-days > div')).length !== 7 || !(await back.$('#reward-days > div:nth-child(7).today'))) throw new Error('streak days not shown');
   // both are paid at once: 3 h of fans (about 190 an hour here) and ten times the daily base (about 1,160)
   const c2 = await back.evaluate(() => window.__vp.save.coins);
   if (!(c2 >= 100 + 3 * 190 * 0.9 + 10 * 1160 * 0.9)) throw new Error('welcome back and day 7 paid too little: ' + (c2 - 100));
-  if (SHOTS) await back.screenshot({ path: SHOTS + '/26-streak.png' });
   await back.click('#reward-ok');
   if (await back.isVisible('#reward')) throw new Error('popups did not close');
   const lg = await back.evaluate(() => window.__vp.save.login.streak);

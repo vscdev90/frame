@@ -323,3 +323,90 @@ button.again { align-self: center; margin-top: 10px; font-size: 1.5rem; padding:
 .splash-event { margin-top: 14px; font-family: 'Lilita One', Fredoka, sans-serif; font-size: 1.2rem; color: #ffb347; text-shadow: 0 0 12px rgba(255,140,26,.8); }
 .splash-event:empty { display: none; }
 #passview { background: linear-gradient(#141a3d, #1e1032); }
+
+/* ---------- calm layout: the scene is the menu ---------- */
+/* the shed lets the launch site show through; only the header, the icons and the bottom sheet take taps */
+#shop { position: fixed; inset: 0; pointer-events: none; }
+#shop > * { pointer-events: auto; }
+.shop-head {
+  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 10px;
+  padding: max(12px, env(safe-area-inset-top), calc(var(--inset-top, 0px) + 6px)) 14px 10px;
+  background: linear-gradient(rgba(8,10,30,.75), rgba(8,10,30,0));
+}
+.shop-head .wallet { flex: none; }
+.head-mid { flex: 1; min-width: 0; }
+.shop-head .record { margin: 0 0 4px; font-size: .85rem; }
+.shop-head .progress { height: 8px; margin: 0 22px 0 0; }
+.shop-head .moon-ico { right: -22px; top: -8px; font-size: 1.1rem; }
+.shop-head .universe { margin: 4px 0 0; font-size: .75rem; }
+button.ghost.round { flex: none; width: 44px; height: 44px; border-radius: 50%; font-size: 1.2rem; }
+
+.rail { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 10px); display: flex; gap: 10px; }
+.rail-btn {
+  position: relative; width: 52px; height: 52px; border-radius: 16px; font-size: 1.6rem; line-height: 1;
+  background: rgba(10,14,40,.6); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center;
+}
+.rail-btn:active { transform: scale(.94); }
+.rail-btn small { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); font-size: .65rem; font-weight: 900; background: #ff8c1a; color: #2b1300; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
+.rail-btn small:empty { display: none; }
+.rail-btn.glow { animation: glowpulse .9s infinite alternate; border-color: #c77dff; }
+@keyframes glowpulse { from { box-shadow: 0 0 6px rgba(199,125,255,.4); } to { box-shadow: 0 0 22px rgba(199,125,255,.95); } }
+.dot { position: absolute; top: -3px; right: -3px; width: 13px; height: 13px; border-radius: 50%; background: #ff3b5c; border: 2px solid #0b1230; }
+
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 12px 12px max(14px, env(safe-area-inset-bottom));
+  background: linear-gradient(rgba(14,14,42,.9), rgba(20,12,40,.97));
+  border-top: 1px solid rgba(255,255,255,.12); border-radius: 22px 22px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,.4);
+}
+.sheet .evo { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 0 4px; background: none; border: 0; box-shadow: none; border-radius: 0; }
+.sheet .evo-info { flex: 1; min-width: 0; }
+.sheet .evo-name { font-size: 1.15rem; }
+.sheet .evo-mult { font-size: .85rem; opacity: .75; margin: 0; }
+.sheet .evo-need { font-size: .75rem; opacity: .65; margin: 0; }
+.sheet #btn-evolve { flex: none; font-size: .85rem; padding: 8px 10px; }
+.sheet #btn-evolve:disabled { display: none; }
+
+.upgrades { grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.upg { align-items: center; text-align: center; gap: 3px; padding: 7px 4px 6px; border-radius: 14px; }
+.upg .ico { font-size: 1.6rem; line-height: 1.1; }
+.upg .un { font-family: 'Lilita One', Fredoka, sans-serif; font-size: .78rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.upg .lvbar { width: 80%; height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); overflow: hidden; }
+.upg .lvbar i { display: block; height: 100%; background: #ffd23f; }
+.upg button.buy { width: 100%; padding: 6px 2px; font-size: .8rem; margin-top: 2px; }
+.upg .plus { right: 6px; top: 2px; }
+
+.launch-row { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 12px; }
+.launch-row #btn-launch { width: 100%; max-width: 360px; font-size: 1.5rem; padding: 14px; }
+.adpill { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; opacity: .95; }
+.adpill .buy { padding: 5px 10px; font-size: .8rem; }
+
+/* panels opened from the icons */
+#missionsview, #hangar, #eventview, #passview, #collection { background: linear-gradient(#141a3d, #1e1032); padding-bottom: 40px; }
+.chips.grid { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; }
+.chips.grid button.chip { width: auto; }
+.ev-how { font-weight: 700; font-size: .9rem; opacity: .9; margin: 12px 2px; line-height: 1.4; }
+.ev-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ev-steps div { background: rgba(255,255,255,.07); border-radius: 14px; padding: 10px 4px; text-align: center; font-weight: 800; font-size: .85rem; }
+.ev-steps div span { display: block; font-size: 1.8rem; }
+.ev-steps div.done { opacity: .55; }
+.settings { display: flex; flex-direction: column; gap: 8px; }
+.settings button.ghost.wide { width: 100%; height: 46px; font-size: .95rem; }
+.settings .danger { color: #ff8fa3; }
+
+/* result: big numbers, one highlight, one details line */
+#result.card { gap: 8px; }
+.result-title { font-size: 2rem; margin-bottom: 0; }
+.res-height { text-align: center; font-family: 'Lilita One', Fredoka, sans-serif; font-size: 3.4rem; line-height: 1; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
+.res-zone { text-align: center; font-weight: 900; color: #80d8ff; }
+.res-total { justify-content: center; border-top: 0; padding-top: 0; font-size: 2rem; }
+.res-details { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 14px; font-size: .9rem; font-weight: 700; opacity: .8; }
+.res-badges { font-size: .85rem; }
+.res-buttons { margin-top: 4px; }
+
+/* in flight: one big message in the middle (the toast); the rest stays small at the edges */
+#hud-combo { margin: 0; min-height: 0; font-size: 1rem; text-align: right; }
+#hud-zone.hint { position: fixed; left: 0; right: 0; bottom: 110px; margin: 0; font-size: 1rem; }
+#toast { font-size: 1.8rem; }
+.reward-text { white-space: pre-line; line-height: 1.45; }

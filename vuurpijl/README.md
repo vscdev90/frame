@@ -52,7 +52,13 @@ ruimteraket (de spraakfunctie van je telefoon), rook en vuur bij het opstijgen e
 **Beloningsfilmpjes (alleen in de Android-app):** kijk vrijwillig een filmpje voor 2× munten na een vlucht, voor
 +2 turbo bij je volgende vlucht (eens per 4 minuten), of om een dagprijs of welkom-terug-beloning te verdubbelen (verdrievoudigen). Via Google AdMob, met het verplichte toestemmingsformulier in de EU.
 
-**Sturen:** houd links of rechts van het scherm vast, of zet 📱 aan om te sturen door je telefoon te kantelen.
+**Rustig scherm:** de schuur is je lanceerplek met je raket, met daaronder de upgrades en LAUNCH. Missies (📋),
+de Rocket Pass (🎫), het event (🎃), de hangar met voertuigen en lanceerplekken (🚀) en de verzameling (🏆) zijn
+icoontjes met een rood bolletje als er iets te halen is. Nieuwe spelers zien eerst alleen raket, upgrades en LAUNCH;
+de rest komt erbij na een paar vluchten. Na een vlucht komt er hooguit één pop-up.
+
+**Sturen:** houd links of rechts van het scherm vast, of zet kantelen aan (🏆 → Settings) om te sturen door je
+telefoon te kantelen. Daar staat ook "Start over".
 Tik tijdens de knal om meteen naar de uitslag te gaan.
 
 Het spel (*Rocket!*) is altijd volledig in het Engels. De Nederlandse teksten staan nog in `i18n.js`, maar worden niet gebruikt.

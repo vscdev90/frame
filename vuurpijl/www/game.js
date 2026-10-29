@@ -705,6 +705,7 @@
     show('result', false); show('hud', false); show('ignite', false);
     renderShop();
     show('shop', true);
+    frameShop();
     flushLater();
     if (!rewardOpen) maybeAskNotify();
   }
@@ -791,7 +792,7 @@
     flightZone = 0; reachedEnd = false; stageShown = 1; lastPuff = false;
     beatRecord = false; recordAtLaunch = save.record; uiCoins = []; hitStop = 0; punch = 0;
     state = 'flight';
-    if (save.flights < 3) {
+    if (save.flights < 2) {
       $('hud-zone').textContent = T('steerHint');
       $('hud-zone').classList.add('show', 'hint');
       hudZoneT = 3.5;
@@ -927,10 +928,11 @@
     save.coins += total;
     // the Rocket Pass and the event: XP and sweets, with a popup for every prize
     const xp = M.flightXp(Object.assign({}, summary, { record: newRecord }));
-    const tiers = M.addPassXp(save, xp);
+    const tiers = passOpen() ? M.addPassXp(save, xp) : [];
     const prizes = EV && fl.candy ? M.addEventItems(save, EV, fl.candy) : [];
     store();
-    $('res-pass').textContent = T('xp')(xp) + (fl.candy ? '  ·  ' + EV.item + ' +' + fl.candy : '');
+    show('res-pass-wrap', passOpen() || fl.candy > 0);
+    $('res-pass').textContent = (passOpen() ? T('xp')(xp) : '') + (fl.candy ? (passOpen() ? '  ' : '') + EV.item + ' +' + fl.candy : '');
     $('res-combo').textContent = fl.bestCombo;
     show('res-ach-line', got.length > 0);
     $('res-ach').textContent = '+' + fmt(achCoins) + ' 🪙';
@@ -939,23 +941,28 @@
 
     $('res-title').textContent = reachedEnd ? T('endTitle') : (maxH < 5 ? T('plofTitle') : T('booms')[Math.floor(Math.random() * 4)]);
     $('res-height').textContent = fmt(maxH) + ' m';
-    countUp('res-coins', rocket.coins, '', ' 🪙', 0);
-    countUp('res-bonus', bonus, '', ' 🪙', 0.25);
-    show('res-zone-line', zoneBonus > 0);
-    $('res-zone').textContent = zoneName + ' +' + fmt(zoneBonus);
+    $('res-coins').textContent = fmt(rocket.coins);
+    $('res-bonus').textContent = fmt(bonus);
+    show('res-zone-line', zoneBonus > 0 && !newRecord);
+    $('res-zone').textContent = '✨ ' + zoneName + ' +' + fmt(zoneBonus) + ' 🪙';
     show('res-record', newRecord);
     show('res-close', soClose);
     if (soClose) $('res-close').textContent = T('soClose')(fmt(Math.ceil(shortBy)));
     countUp('res-total', total, '+', ' 🪙', 0.5);
     renderNextGoal();
-    for (const r of prizes) laterRewards.push({ icon: EV.icon, title: T('eventPrize')(EV.name), text: rewardText(r), coins: r.coins || 0 });
-    for (const r of tiers) laterRewards.push(passPopup(r));
-    if (save.flights % 8 === 0) {
-      const box = M.mysteryBox(save);
-      store();
-      laterRewards.push({ icon: '🎁', title: T('boxTitle'), text: rewardText(box), coins: box.coins || 0 });
+    const box = save.flights % 8 === 0 ? M.mysteryBox(save) : null;
+    store();
+    const tierLines = tiers.map((r) => '🎫 ' + T('passUp')(r.tier) + ' ' + rewardText(r));
+    if (prizes.length || box) {
+      const lines = prizes.map((r) => EV.icon + ' ' + rewardText(r)).concat(box ? ['🎁 ' + rewardText(box)] : [], tierLines);
+      const coins = prizes.concat(box ? [box] : [], tiers).reduce((n, r) => n + (r.coins || 0), 0);
+      laterRewards.push(prizes.length
+        ? { icon: EV.icon, title: T('eventPrize')(EV.name), text: lines.join('\n'), coins }
+        : { icon: '🎁', title: T('boxTitle'), text: lines.join('\n'), coins });
+    } else if (tierLines.length) {
+      setTimeout(() => { if (state === 'result') toast(tierLines[tierLines.length - 1], 1800); }, 1200);
     }
-    // shown once the totals have counted up; if you already flew off again, they wait for the shed
+    // shown once the totals have counted up; if you already flew off again, it waits for the shed
     if (laterRewards.length) setTimeout(() => { if (state === 'result') flushLater(); }, 1400);
     lastTotal = total; doubled = false;
     show('btn-ad-double', false);
@@ -1077,12 +1084,10 @@
   function flushLater() {
     while (laterRewards.length) popReward(laterRewards.shift());
   }
-  function passPopup(r) {
-    return { icon: '🎫', title: T('passUp')(r.tier), text: rewardText(r), coins: r.coins || 0 };
-  }
-  // XP outside a flight (missions, the chest)
+  // XP outside a flight (missions, the chest); a new tier is a short message, not a popup
   function passXp(n) {
-    for (const r of M.addPassXp(save, n)) popReward(passPopup(r));
+    if (!passOpen()) return;
+    for (const r of M.addPassXp(save, n)) setTimeout(() => toast('🎫 ' + T('passUp')(r.tier) + ' ' + rewardText(r), 1800), 900);
   }
   function nextReward() {
     rewardOpen = rewardQueue.shift() || null;
@@ -1120,10 +1125,14 @@
     afterReward();
   });
   // When the game opens (or comes back to the front): coins from while you were away, then today's streak.
+  // One popup, not two: the coins your fans saved and today's streak prize together.
   function checkReturn(away) {
+    const pop = { lines: [], coins: 0 };
     if (away && away.coins > 0) {
       save.coins += away.coins;
-      popReward({ icon: '🌙', title: T('welcomeBack'), text: T('awayText')(fmt(away.coins), Math.max(1, Math.round(away.hours))), coins: away.coins, adMult: 3 });
+      Object.assign(pop, { icon: '🌙', title: T('welcomeBack'), adMult: 3 });
+      pop.lines.push(T('awayText')(fmt(away.coins), Math.max(1, Math.round(away.hours))));
+      pop.coins += away.coins;
     }
     if (save.flights > 0) {
       const d = M.checkLogin(save);
@@ -1134,13 +1143,18 @@
           days += '<div class="' + (i < d.streak ? 'done' : i === d.streak ? 'today' : '') + '"><b>' + ic + '</b>' + T('dayLabel')(i) + '</div>';
         }
         const r = d.kind === 'box' ? d.box : d;
-        popReward({ icon: d.kind === 'box' ? '🎁' : '🔥', title: T('dailyTitle')(d.streak), text: rewardText(r), coins: r.coins || 0, days });
+        if (!pop.title) Object.assign(pop, { icon: d.kind === 'box' ? '🎁' : '🔥', title: T('dailyTitle')(d.streak) });
+        pop.adMult = 2;
+        pop.lines.push(pop.lines.length ? T('dayPrize')(d.streak, rewardText(r)) : rewardText(r));
+        pop.coins += r.coins || 0;
+        pop.days = days;
         for (const a of M.checkAchievements(save, null)) { // a 7-day streak earns a badge too
           save.coins += a.reward;
-          toast(a.icon + ' ' + a.name + ' +' + fmt(a.reward) + ' 🪙', 2200);
+          pop.lines.push(a.icon + ' ' + a.name + ' +' + fmt(a.reward) + ' 🪙');
         }
       }
     }
+    if (pop.lines.length) popReward({ icon: pop.icon, title: pop.title, text: pop.lines.join('\n'), coins: pop.coins, days: pop.days, adMult: pop.adMult });
     store();
     if (state === 'shop') renderShop();
   }
@@ -1199,11 +1213,14 @@
   window.vpPause = () => { store(); return 'ok'; };
 
   // ---------- shop ----------
+  // Features show up one by one, so a new player sees just the rocket, the upgrades and LAUNCH.
+  const UNLOCK = { upgrades: 3, hangar: 2, missions: 3, pass: 5, event: 1 };
+  const passOpen = () => save.flights >= UNLOCK.pass;
+
   function renderShop() {
     st = L.stats(save);
     $('shop-coins').textContent = fmt(save.coins);
     $('shop-record').textContent = fmt(save.record) + ' m';
-    $('shop-flights').textContent = save.flights;
     const gi = Math.max(0, L.BODIES.findIndex((b) => b.y > save.record));
     const goal = L.BODIES.find((b) => b.y > save.record) || L.BODIES[L.BODIES.length - 1];
     const from = gi > 0 && goal.y > save.record ? L.BODIES[gi - 1].y : 0;
@@ -1211,7 +1228,7 @@
     $('goal-ico').textContent = goal.icon;
     const evo = EVO(), next = L.EVOS[save.evo + 1];
     $('evo-name').textContent = I.evo(save.evo, L);
-    $('evo-mult').textContent = T('power') + ' ×' + evo.mult.toFixed(2);
+    $('evo-mult').textContent = '×' + evo.mult.toFixed(2);
     const be = $('btn-evolve');
     if (!next) {
       be.textContent = T('maxed'); be.disabled = true; be.className = 'buy max';
@@ -1221,23 +1238,22 @@
       be.textContent = '⬆ ' + I.evo(save.evo + 1, L) + ' · ' + fmt(next.cost) + ' 🪙';
       const reached = save.record >= next.need;
       be.disabled = !reached || save.coins < next.cost;
-      $('evo-need').textContent = reached ? T('power') + ' ×' + next.mult.toFixed(2) : T('reachFirst')(fmt(next.need));
+      $('evo-need').textContent = reached ? (save.coins < next.cost ? T('evoSave')(I.evo(save.evo + 1, L), fmt(next.cost - save.coins)) : '') : T('reachFirst')(fmt(next.need));
     }
-    drawPreview();
     renderChoices();
     renderEvent();
     renderPass();
     renderMissions();
-    const pm = M.prestigeMult(save);
-    $('shop-universe').textContent = save.prestige ? T('universe')(save.prestige + 1, pm) : '';
+    $('shop-universe').textContent = save.prestige ? T('universe')(save.prestige + 1, M.prestigeMult(save)) : '';
     show('prestige', M.canPrestige(save));
     refreshAdButtons();
-    $('btn-prestige').textContent = T('prestigeBtn')(save.prestige + 2, 1 + 0.5 * (save.prestige + 1));
-    $('btn-tilt').classList.toggle('on', !!save.tilt);
+    renderRail();
 
+    // the upgrades: four big buttons at first, all eight after a few flights
     const box = $('upgrades');
     box.innerHTML = '';
-    for (const u of L.UPGRADES) {
+    const ups = save.flights < UNLOCK.upgrades ? L.UPGRADES.slice(0, 4) : L.UPGRADES;
+    for (const u of ups) {
       const lv = save.lv[u.id];
       const c = L.cost(u, lv);
       const max = lv >= u.max;
@@ -1245,13 +1261,10 @@
       const el = document.createElement('div');
       el.className = 'upg' + (can ? ' can' : '');
       el.dataset.id = u.id;
-      const bars = Array.from({ length: Math.min(u.max, 10) }, (_, i) => {
-        const filled = u.max > 10 ? lv >= (i + 1) * (u.max / 10) : lv > i;
-        return '<i class="' + (filled ? 'on' : '') + '"></i>';
-      }).join('');
-      el.innerHTML =
-        '<div class="top"><span class="ico">' + u.icon + '</span><span>' + I.upgName(u) + ' <small>' + lv + '/' + u.max + '</small></span></div>' +
-        '<div class="desc">' + I.upgDesc(u) + '</div><div class="lvl">' + bars + '</div>';
+      el.title = I.upgDesc(u);
+      el.innerHTML = '<span class="ico">' + u.icon + '</span><span class="un">' + I.upgName(u) + '</span>' +
+        '<span class="lvbar"><i style="width:' + (lv / u.max) * 100 + '%"></i></span>';
+      el.querySelector('.ico').addEventListener('click', () => toast(u.icon + ' ' + I.upgDesc(u), 1400));
       const b = document.createElement('button');
       b.className = 'buy' + (max ? ' max' : '');
       b.textContent = max ? 'MAX' : fmt(c) + ' 🪙';
@@ -1260,13 +1273,53 @@
       el.appendChild(b);
       box.appendChild(el);
     }
+    frameShop();
   }
+
+  // The icons on the left: only what is unlocked, with a red dot when something waits for you.
+  function renderRail() {
+    const dot = (id, on) => $(id).querySelector('.dot').classList.toggle('hidden', !on);
+    show('btn-hangar', save.flights >= UNLOCK.hangar);
+    const buyable = L.TYPES.some((t, i) => !save.types.includes(i) && save.record >= t.need && save.coins >= t.cost);
+    const sitesOpen = L.SITES.filter((x) => save.record >= x.need).length;
+    dot('btn-hangar', buyable || sitesOpen > (save.sitesSeen || 1));
+    show('btn-missions', save.flights >= UNLOCK.missions);
+    const d = M.dailyMissions(save);
+    dot('btn-missions', d.missions.some((m) => M.missionDone(m) && !m.claimed) || (d.missions.every((m) => m.claimed) && !d.chest));
+    show('btn-pass', passOpen());
+    dot('btn-pass', (save.passSeen || 0) < M.passState(save).tier);
+    show('btn-event', !!EV && save.flights >= UNLOCK.event);
+    if (EV) { $('event-ico').textContent = EV.icon; $('event-count').textContent = EV.item + M.eventState(save, EV).n; }
+    dot('btn-collection', (save.achSeen || 0) < save.achievements.length);
+  }
+
+  // In the shed the launch site is the menu: the pad sits just above the icons and the bottom sheet,
+  // zoomed in as far as the room above allows.
+  let shopZoom = 1.3;
+  function frameShop() {
+    if (state !== 'shop') return;
+    const top = document.querySelector('#shop .rail').getBoundingClientRect().top;
+    if (top <= 0) return;
+    cam.anchor = clamp((top - 6) / H, 0.3, 0.8);
+    shopZoom = clamp((top - 100) / 150, 0.8, 1.3);
+  }
+
+  function openPanel(id) {
+    audioInit();
+    show(id, true);
+    $(id).scrollTop = 0;
+    if (id === 'hangar') { save.sitesSeen = L.SITES.filter((x) => save.record >= x.need).length; store(); renderRail(); }
+  }
+  const PANELS = ['missionsview', 'hangar', 'eventview', 'passview', 'collection'];
 
   // ---------- the event banner, the Rocket Pass card and its list of tiers ----------
   function renderEvent() {
-    show('event', !!EV);
     if (!EV) return;
     const es = M.eventState(save, EV);
+    $('event-head').textContent = EV.icon + ' ' + EV.name;
+    $('event-how').textContent = T('eventHow')(EV.item);
+    $('event-steps').innerHTML = EV.steps.map((x) => '<div class="' + (es.paid >= x.at ? 'done' : '') + '"><span>' +
+      (x.kind === 'skin' ? M.SKINS.find((k) => k.id === EV.skin).icon : '🎁') + '</span>' + EV.item + ' ' + x.at + (es.paid >= x.at ? ' ✓' : '') + '</div>').join('');
     const next = EV.steps.find((st2) => st2.at > es.paid);
     $('event-title').textContent = EV.icon + ' ' + EV.name.toUpperCase();
     $('event-days').textContent = T('eventDays')(EV.daysLeft);
@@ -1298,6 +1351,7 @@
   function openPass() {
     audioInit();
     const p = M.passState(save);
+    save.passSeen = p.tier; store(); renderRail();
     $('pass-info').textContent = T('passInfo')(M.passDaysLeft());
     const box = $('pass-tiers');
     box.innerHTML = '';
@@ -1308,7 +1362,8 @@
       el.innerHTML = '<b>' + t + '</b><span>' + prizeIcon(r) + '</span><small>' + prizeLabel(r) + '</small>';
       box.appendChild(el);
     }
-    show('passview', true);
+    renderPass();
+    openPanel('passview');
     const now = box.querySelector('.now');
     if (now) now.scrollIntoView({ block: 'center' });
   }
@@ -1348,7 +1403,7 @@
     cb.addEventListener('click', () => {
       if (d.chest || !all) return;
       d.chest = true; save.coins += d.reward * 2; passXp(30); store();
-      sfx.perfect(); vib(80); toast(T('chest') + ' +' + fmt(d.reward * 2) + '  ·  ' + T('xp')(30), 1400);
+      sfx.perfect(); vib(80); toast(T('chest') + ' +' + fmt(d.reward * 2) + (passOpen() ? '  ·  ' + T('xp')(30) : ''), 1400);
       renderShop();
     });
     chest.appendChild(cb);
@@ -1362,7 +1417,7 @@
     save.coins += save.daily.reward;
     passXp(15);
     store(); sfx.buy(); vib(30);
-    toast(T('xp')(15), 800);
+    if (passOpen()) toast(T('xp')(15), 800);
     renderShop();
   }
 
@@ -1394,7 +1449,8 @@
   function openCollection() {
     audioInit();
     renderCollection();
-    show('collection', true);
+    openPanel('collection');
+    save.achSeen = save.achievements.length; store(); renderRail();
   }
 
   function renderCollection() {
@@ -1404,6 +1460,7 @@
     try { privacy = !!(window.AndroidBridge && window.AndroidBridge.privacyOptionsRequired()); } catch (e) { /* browser */ }
     show('btn-privacy', privacy);
     renderNotifyBtn();
+    $('btn-tilt').textContent = T(save.tilt ? 'tiltOnBtn' : 'tiltOffBtn');
     const december = new Date().getMonth() === 11;
     const sk = $('skins');
     sk.innerHTML = '';
@@ -1531,6 +1588,7 @@
     save.site = i; store();
     tone(660, 0.12, 'triangle', 0.15); vib(10);
     renderShop();
+    toast(L.SITES[i].icon + ' ' + I.site(i, L), 900);
   }
 
   function pickType(i) {
@@ -1574,15 +1632,6 @@
     sfx.perfect(); vib(80);
     toast(T('evolved') + I.evo(save.evo, L), 1400);
     renderShop();
-  }
-
-  function drawPreview() {
-    const pc = $('evo-preview'), p = pc.getContext('2d');
-    p.clearRect(0, 0, pc.width, pc.height);
-    const g = p.createRadialGradient(60, 70, 5, 60, 70, 70);
-    g.addColorStop(0, 'rgba(255,210,63,.35)'); g.addColorStop(1, 'rgba(255,210,63,0)');
-    p.fillStyle = g; p.fillRect(0, 0, pc.width, pc.height);
-    drawRocket(p, 60, 112, 0, EVO(), TYPE().len > 1.2 ? 0.95 : 1.1, 0, TYPE(), 1);
   }
 
   // ---------- drawing ----------
@@ -2946,7 +2995,7 @@
     cx.globalAlpha = 1;
     cx.globalCompositeOperation = 'source-over';
     cx.textAlign = 'center';
-    cx.font = "20px 'Lilita One', sans-serif";
+    cx.font = "15px 'Lilita One', sans-serif";
     for (const t of texts) {
       const [x, y] = w2s(t.ax, t.ay);
       cx.globalAlpha = clamp(t.life * 1.5, 0, 1);
@@ -2994,10 +3043,7 @@
     const zi = L.zoneIndex(rocket.y);
     if (zi > flightZone) {
       flightZone = zi;
-      $('hud-zone').classList.remove('hint');
-      $('hud-zone').textContent = (zi > save.zones ? T('newZone') : '') + I.zone(zi, L);
-      $('hud-zone').classList.add('show');
-      hudZoneT = 2.2;
+      toast((zi > save.zones ? T('newZone') : '') + I.zone(zi, L), 1600);
       if (zi > save.zones) { sfx.perfect(); vib(30); }
     }
     if (hudZoneT > 0) { hudZoneT -= dt; if (hudZoneT <= 0) $('hud-zone').classList.remove('show'); }
@@ -3168,6 +3214,10 @@
     if (punch > 0.01 && rocket) {
       const [px, py] = w2s(rocket.x, rocket.y);
       cx.translate(px, py); cx.scale(1 + punch, 1 + punch); cx.translate(-px, -py);
+    }
+    if (state === 'shop') {
+      const [, gy] = w2s(0, 0);
+      cx.translate(W / 2, gy); cx.scale(shopZoom, shopZoom); cx.translate(-W / 2, -gy);
     }
     drawGround();
     if (state === 'shop' || state === 'ignite' || state === 'countdown') drawIgnite();
@@ -3350,12 +3400,16 @@
     audioInit();
     save.tilt = !save.tilt; store();
     toast(T(save.tilt ? 'tiltOn' : 'tiltOff'), 1200);
-    renderShop();
+    renderCollection();
   });
 
   $('btn-launch').addEventListener('click', goIgnite);
   $('btn-collection').addEventListener('click', openCollection);
-  $('btn-close-collection').addEventListener('click', () => show('collection', false));
+  $('btn-missions').addEventListener('click', () => openPanel('missionsview'));
+  $('btn-hangar').addEventListener('click', () => openPanel('hangar'));
+  $('btn-event').addEventListener('click', () => openPanel('eventview'));
+  $('btn-pass').addEventListener('click', openPass);
+  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { show(b.dataset.close, false); renderShop(); }));
   $('btn-prestige').addEventListener('click', startUniverse);
   $('btn-share').addEventListener('click', share);
   $('btn-light').addEventListener('click', light);
@@ -3366,8 +3420,6 @@
   $('btn-ad-double').addEventListener('click', adDouble);
   $('btn-ad-boost').addEventListener('click', adBoost);
   $('btn-notify').addEventListener('click', () => { audioInit(); setNotify(!save.notify); });
-  $('pass').addEventListener('click', openPass);
-  $('btn-close-pass').addEventListener('click', () => show('passview', false));
   $('btn-privacy').addEventListener('click', () => { try { window.AndroidBridge.showPrivacyOptions(); } catch (e) { /* browser */ } });
   $('btn-evolve').addEventListener('click', evolve);
   $('btn-sound').addEventListener('click', cycleSound);
@@ -3391,8 +3443,8 @@
     if (!$('splash').classList.contains('gone')) { closeSplash(); return 'ok'; }
     if (!$('modal').classList.contains('hidden')) { $('modal-no').click(); return 'ok'; }
     if (!$('reward').classList.contains('hidden')) { $('reward-ok').click(); return 'ok'; }
-    if (!$('collection').classList.contains('hidden')) { show('collection', false); return 'ok'; }
-    if (!$('passview').classList.contains('hidden')) { show('passview', false); return 'ok'; }
+    const open = PANELS.find((id) => !$(id).classList.contains('hidden'));
+    if (open) { show(open, false); renderShop(); return 'ok'; }
     if (state === 'shop') return 'exit';
     if (state === 'ignite' && !ign) { goShop(); return 'ok'; }
     if (state === 'result') { goShop(); return 'ok'; }
@@ -3407,6 +3459,7 @@
     if (!A.ctx) return;
     if (document.hidden) A.ctx.suspend(); else A.ctx.resume();
   });
+  window.addEventListener('resize', () => frameShop());
   // keyboard / tests: any key closes the splash too
   window.addEventListener('keydown', closeSplash, { once: true });
 
