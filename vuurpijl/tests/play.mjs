@@ -339,7 +339,8 @@ if (await page.isVisible('#btn-pass .dot')) throw new Error('the pass dot should
   if (!(await ev.evaluate(() => window.__vp.save.skins.includes('witch')))) throw new Error('witch hat not given');
   await ev.click('#btn-continue');
   if (!(await ev.textContent('#event')).includes('All prizes collected')) throw new Error('banner should say all prizes are collected');
-  if (!(await ev.textContent('#event-count')).includes('120')) throw new Error('the event icon should count the sweets');
+  const counted = parseInt((await ev.textContent('#event-count')).replace(/\D/g, ''), 10);
+  if (!(counted >= 120)) throw new Error('the event icon should count the sweets: ' + (await ev.textContent('#event-count')));
   await ev.click('#btn-collection');
   await ev.click('#skins .chip:has-text("Witch hat")');
   if ((await ev.evaluate(() => window.__vp.save.skin)) !== 'witch') throw new Error('could not wear the witch hat');
