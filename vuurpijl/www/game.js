@@ -21,8 +21,6 @@
 
   // ---------- save ----------
   const SAVE_KEY = 'vuurpijl-save-v1';
-  // The Play Store build has no cheat mode; the hobby build and the browser do.
-  const CHEATS_OK = !(window.AndroidBridge && window.AndroidBridge.cheatsAllowed) || window.AndroidBridge.cheatsAllowed();
   let save = L.freshSave();
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -37,7 +35,8 @@
       save.best = Math.max(save.best || 0, save.record);
     }
   } catch (e) { /* private mode: play without saving */ }
-  if (!CHEATS_OK) { save.cheats = false; save.god = false; save.infFuel = false; }
+  // older versions had a cheat mode; drop whatever it left in the save
+  delete save.cheats; delete save.god; delete save.infFuel;
   function store() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
 
   // ---------- haptics ----------
@@ -582,9 +581,6 @@
       bonusT = 4;
       toast(T('coinRain'), 1000);
       sfx.perfect(); vib(40);
-    } else if (!o.hit && save.god) {
-      o.hit = true;
-      floatText(o.x, o.y, '😇', '#ffffff');
     } else if (!o.hit && rocket.shield) {
       o.hit = true;
       rocket.shield = false;
@@ -714,7 +710,6 @@
       hudZoneT = 3.5;
     }
     show('hud', true);
-    show('btn-boom', !!save.infFuel);
     $('hud-wx').textContent = weather.id === 'clear' ? '' : M.WEATHER[weather.id].icon + ' ' + M.WEATHER[weather.id].name;
     hudCache = {};
     setText('hud-combo', '');
@@ -956,10 +951,7 @@
     const pm = M.prestigeMult(save);
     $('shop-universe').textContent = save.prestige ? T('universe')(save.prestige + 1, pm) : '';
     show('prestige', M.canPrestige(save));
-    show('cheats', CHEATS_OK && !!save.cheats);
     refreshAdButtons();
-    document.querySelectorAll('[data-cheat=god]').forEach((b) => b.classList.toggle('on', !!save.god));
-    document.querySelectorAll('[data-cheat=fuel]').forEach((b) => b.classList.toggle('on', !!save.infFuel));
     $('btn-prestige').textContent = T('prestigeBtn')(save.prestige + 2, 1 + 0.5 * (save.prestige + 1));
     $('btn-tilt').classList.toggle('on', !!save.tilt);
 
@@ -2458,7 +2450,6 @@
         sfx.perfect(); vib(80);
         for (let i = 0; i < 60; i++) part(rocket.x, rocket.y, { vx: rand(-260, 260), vy: rand(-260, 120), g: 160, drag: 0.95, life: rand(0.8, 1.4), size: rand(2, 4), color: ['#ffd23f', '#ff4d6d', '#4cc9f0', '#80ffdb'][i % 4], glow: false });
       }
-      if (save.infFuel && !reachedEnd) rocket.fuel = Math.max(rocket.fuel, 0.5); // cheat
       if (flightT >= ghostNext && ghostRec.length < 4000) {
         ghostRec.push([Math.round(rocket.x * 10) / 10, Math.round(rocket.y * 10) / 10]);
         ghostNext += 0.1;
@@ -2759,39 +2750,6 @@
   $('btn-sound').addEventListener('click', cycleSound);
   $('btn-reset').addEventListener('click', async () => {
     if (await ask(T('resetAsk'))) { save = Object.assign(L.freshSave(), { sound: save.sound, tilt: save.tilt }); store(); goShop(); }
-  });
-
-  // ---------- cheat mode: tap the title 5 times (hobby/test build and browser only) ----------
-  let titleTaps = 0, titleTapT = 0;
-  document.querySelector('#shop .title').addEventListener('click', () => {
-    if (!CHEATS_OK) return;
-    const now = performance.now();
-    titleTaps = now - titleTapT < 600 ? titleTaps + 1 : 1;
-    titleTapT = now;
-    if (titleTaps >= 5) { titleTaps = 0; save.cheats = true; store(); toast(T('cheatsOn'), 1000); renderShop(); }
-  });
-  function cheat(kind) {
-    if (kind === 'coins') save.coins += 1e6;
-    if (kind === 'max') {
-      for (const u of L.UPGRADES) save.lv[u.id] = u.max;
-      save.evo = L.EVOS.length - 1;
-      save.types = L.TYPES.map((_, i) => i);
-      save.skins = M.SKINS.map((k) => k.id);
-      save.record = Math.max(save.record, 60000);
-      save.best = Math.max(save.best || 0, save.record);
-    }
-    if (kind === 'god') save.god = !save.god;
-    if (kind === 'fuel') save.infFuel = !save.infFuel;
-    if (kind === 'missions') for (const m of M.dailyMissions(save).missions) m.progress = Math.max(m.progress, m.target);
-    if (kind === 'end') save.ends = Math.max(1, save.ends || 0);
-    if (kind === 'hide') save.cheats = false;
-    store(); sfx.buy();
-    renderShop();
-  }
-  document.querySelectorAll('[data-cheat]').forEach((b) => b.addEventListener('click', () => cheat(b.dataset.cheat)));
-  $('btn-boom').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    if (state === 'flight') { rocket.fuel = 0; rocket.turboT = 0; rocket.stagesLeft = []; explode(false); }
   });
 
   // splash: a tap starts the game and the music

@@ -48,15 +48,14 @@ android {
         }
     }
 
-    // hobby: the APK you sideload to test (cheats allowed, test ads only).
-    // play:  the bundle for Google Play (no cheats, your real AdMob IDs).
+    // hobby: the APK you sideload to test (Google's test ads only).
+    // play:  the bundle for Google Play (your real AdMob IDs).
     flavorDimensions 'store'
     productFlavors {
         hobby {
             dimension 'store'
             applicationId 'nl.vuurpijl.game'
             signingConfig signingConfigs.hobby
-            buildConfigField 'boolean', 'CHEATS', 'true'
             buildConfigField 'String', 'REWARDED_ID', "\"${TEST_REWARDED}\""
             manifestPlaceholders = [admobAppId: TEST_ADMOB_APP]
         }
@@ -64,7 +63,6 @@ android {
             dimension 'store'
             applicationId 'io.github.vscdev90.rocket'
             if (System.getenv('UPLOAD_KEYSTORE')) signingConfig signingConfigs.upload
-            buildConfigField 'boolean', 'CHEATS', 'false'
             buildConfigField 'String', 'REWARDED_ID', "\"${env('ADMOB_REWARDED_ID', TEST_REWARDED)}\""
             manifestPlaceholders = [admobAppId: env('ADMOB_APP_ID', TEST_ADMOB_APP)]
         }

@@ -135,17 +135,11 @@ if (!/^rocket-\d+m\.png$/.test(file.suggestedFilename())) throw new Error('unexp
 await shot('15-result');
 await page.click('#btn-continue');
 
-// cheat mode: five taps on the title
+// there is no cheat mode: five taps on the title change nothing
+const before5 = await page.evaluate(() => JSON.stringify(window.__vp.save));
 for (let i = 0; i < 5; i++) await page.click('#shop .title');
-if (!(await page.isVisible('#cheats'))) throw new Error('cheat mode did not open');
-const c0 = await page.evaluate(() => window.__vp.save.coins);
-await page.click('[data-cheat=coins]');
-if ((await page.evaluate(() => window.__vp.save.coins)) !== c0 + 1e6) throw new Error('coin cheat');
-await page.click('[data-cheat=god]');
-if (!(await page.evaluate(() => window.__vp.save.god))) throw new Error('god mode cheat');
-await shot('17-cheats');
-await page.click('[data-cheat=god]');
-await page.click('[data-cheat=hide]');
+if (await page.$('#cheats, [data-cheat], #btn-boom')) throw new Error('cheat mode is still in the page');
+if ((await page.evaluate(() => JSON.stringify(window.__vp.save))) !== before5) throw new Error('title taps changed the save');
 
 // the space rocket counts down before it lifts off; the cola gets a mint
 await setSave('s.types = [...Array(20).keys()]; s.type = 19;');
@@ -247,7 +241,7 @@ await page.click('#btn-reset');
 await page.click('#modal-no');
 if ((await page.evaluate(() => window.__vp.save.prestige)) !== 1) throw new Error('cancel should keep the save');
 await shot('16-universe');
-// The Play Store app: no cheats, and rewarded videos through the Android bridge (mocked here).
+// The Android app: rewarded videos through the Android bridge (mocked here).
 {
   const app = await browser.newPage({ viewport: { width: 390, height: 844 } });
   app.on('pageerror', (e) => errors.push('app pageerror: ' + e.message));
@@ -255,19 +249,18 @@ await shot('16-universe');
   await app.addInitScript(() => {
     window.__ads = 0;
     window.AndroidBridge = {
-      cheatsAllowed: () => false, version: () => '1.0.99', adReady: () => true,
+      version: () => '1.0.99', adReady: () => true,
       showRewarded: (tag) => { window.__ads++; setTimeout(() => window.vpAdDone(tag, true), 50); },
       privacyOptionsRequired: () => true, showPrivacyOptions: () => {}, vibrate: () => {},
     };
-    localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ coins: 5000, record: 300, flights: 5, cheats: true, god: true }));
+    // an old save from when there was a cheat mode
+    localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ coins: 5000, record: 300, flights: 5, cheats: true, god: true, infFuel: true }));
   });
   await app.goto(BASE + '/index.html');
   await app.click('#splash');
   await app.waitForTimeout(500);
-  if (await app.isVisible('#cheats')) throw new Error('cheats visible in the Play build');
-  for (let i = 0; i < 5; i++) await app.click('#shop .title');
-  if (await app.isVisible('#cheats')) throw new Error('title taps opened cheats in the Play build');
-  if (await app.evaluate(() => window.__vp.save.god)) throw new Error('god mode survived in the Play build');
+  const old = await app.evaluate(() => window.__vp.save);
+  if ('god' in old || 'cheats' in old || 'infFuel' in old) throw new Error('old cheat settings were not cleaned out of the save');
   // free boost: a video gives +2 turbo on the next flight
   await app.waitForTimeout(1200);
   await app.click('#btn-ad-boost');

@@ -228,15 +228,9 @@ public class MainActivity extends Activity {
             }
         }
 
-        /** Cheat mode only exists in the hobby build, never in the Play Store one. */
-        @JavascriptInterface
-        public boolean cheatsAllowed() {
-            return BuildConfig.CHEATS;
-        }
-
         @JavascriptInterface
         public String version() {
-            return BuildConfig.VERSION_NAME + (BuildConfig.CHEATS ? " (hobby)" : "");
+            return BuildConfig.VERSION_NAME + ("hobby".equals(BuildConfig.FLAVOR) ? " (test)" : "");
         }
 
         /** Is a rewarded video loaded and ready to show? */

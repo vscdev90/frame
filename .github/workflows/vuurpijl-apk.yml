@@ -51,7 +51,7 @@ jobs:
         with:
           packages: 'platforms;android-36 build-tools;36.0.0'
 
-      # The hobby APK: sideload it to test (cheat mode, Google's test ads).
+      # The hobby APK: sideload it to test (Google's test ads).
       # The Play bundle is always built so a broken store build shows up here.
       - name: Build the test APK and the Play Store bundle
         working-directory: vuurpijl/android
@@ -99,4 +99,4 @@ jobs:
           body: |
             Download **Rocket.apk** on your Android phone and open it.
             Allow "install unknown apps" if your phone asks.
-            This is the test build (cheat mode, Google's test ads). The Play Store bundle is a private run artifact.
+            This is the test build (Google's test ads). The Play Store bundle is a private run artifact.

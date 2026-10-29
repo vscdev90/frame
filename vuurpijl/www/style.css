@@ -188,17 +188,13 @@ button.ghost.wide { width: auto; padding: 0 14px; font-size: 1rem; font-weight: 
 .planet .pc { font-size: .75rem; opacity: .8; }
 .planet.locked .pi { filter: brightness(0); opacity: .5; }
 
-/* countdown, cheat-mode explode button */
+/* countdown */
 #countdown {
   position: fixed; left: 0; right: 0; top: 28%; text-align: center; pointer-events: none;
   font-size: 7rem; font-weight: 900; color: #fff; text-shadow: 0 6px 0 #b34d00, 0 0 40px rgba(255,140,0,.8);
   animation: pop .9s ease-out infinite;
 }
 @keyframes pop { from { transform: scale(1.4); opacity: 1; } to { transform: scale(.8); opacity: .6; } }
-#btn-boom {
-  pointer-events: auto; position: fixed; left: 16px; bottom: max(110px, env(safe-area-inset-bottom));
-  width: 56px; height: 56px; border-radius: 50%; font-size: 1.6rem; background: rgba(255,77,109,.85);
-}
 
 /* splash */
 #splash {
@@ -214,10 +210,6 @@ button.ghost.wide { width: auto; padding: 0 14px; font-size: 1rem; font-weight: 
 .splash-sub { opacity: .8; font-weight: 700; }
 .splash-tap { margin-top: 30px; font-weight: 900; font-size: 1.3rem; animation: pulse .8s infinite alternate; }
 
-/* cheats */
-.cheats { margin: 12px 0; padding: 12px; border-radius: 16px; background: rgba(255,77,109,.15); border: 2px dashed #ff4d6d; }
-.cheat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-.cheat-grid button.on { background: linear-gradient(#ffd23f, #ff8c1a); color: #2b1300; }
 
 /* yes/no dialog */
 #modal { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.6); }

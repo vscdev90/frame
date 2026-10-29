@@ -35,9 +35,6 @@ Echte merknamen (NASA, F-16, F-35, Mentos, ACME, …) zitten er bewust niet in.
 **Show:** opstartscherm met menu-muziek (zelf gesynthetiseerd, geen audiobestanden), een aftelling met stem voor de
 ruimteraket (de spraakfunctie van je telefoon), rook en vuur bij het opstijgen en een pepermuntje dat in de colafles valt.
 
-**Cheatmodus:** tik 5× snel op de titel ROCKET! in de schuur. Dit kan alleen in de testversie (`Rocket.apk`) en in de
-browser; de Play Store-versie heeft geen cheats.
-
 **Beloningsfilmpjes (alleen in de Android-app):** kijk vrijwillig een filmpje voor 2× munten na een vlucht, of voor
 +2 turbo bij je volgende vlucht (eens per 4 minuten). Via Google AdMob, met het verplichte toestemmingsformulier in de EU.
 
@@ -50,9 +47,9 @@ Het spel (*Rocket!*) is altijd volledig in het Engels. De Nederlandse teksten st
 
 Elke push naar `vuurpijl/` bouwt via GitHub Actions (`.github/workflows/vuurpijl-apk.yml`) twee versies:
 
-- **`Rocket.apk`** bij **Releases**: de testversie (cheatmodus, testreclame van Google). Download hem op je telefoon,
+- **`Rocket.apk`** bij **Releases**: de testversie (met de testreclame van Google). Download hem op je telefoon,
   open hem en sta "installeren uit onbekende bronnen" toe. Nieuwe versies installeren over de oude heen.
-- **`Rocket-play.aab`**: de versie voor Google Play (pakket `io.github.vscdev90.rocket`, geen cheats, echte reclame).
+- **`Rocket-play.aab`**: de versie voor Google Play (pakket `io.github.vscdev90.rocket`, echte reclame).
   Die verschijnt als privébestand bij de Actions-run zodra je uploadsleutel als secret in GitHub staat.
 
 Hoe je het spel in de Play Store krijgt: zie **[DEPLOY.md](DEPLOY.md)**.

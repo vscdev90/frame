@@ -71,7 +71,7 @@
       adDouble: '📺 2× COINS', adThanks: '💰 Coins doubled!', adFail: 'No video right now, try again later',
       adBoost: '📺 Watch a short video: +2 turbo on your next flight', boostReady: '⚡ +2 turbo ready for your next flight!',
       boostWait: (m) => '📺 Next free boost in ' + m + ' min', privacy: 'Privacy & ad settings',
-      cheatsOn: '🛠️ Cheat mode', soundAll: 'Sound and music', soundFx: 'Sound effects only', soundOff: 'Sound off',
+      soundAll: 'Sound and music', soundFx: 'Sound effects only', soundOff: 'Sound off',
     },
   };
 

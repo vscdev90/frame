@@ -193,7 +193,7 @@ await page.waitForTimeout(380);
 await grab('BLOW IT UP!', 'Every rocket has its own explosion');
 
 // 4. out in space near Saturn
-await fresh('s.site = 4; s.type = 19; s.evo = 7; s.god = true;');
+await fresh('s.site = 4; s.type = 19; s.evo = 7;');
 await launch();
 await page.waitForTimeout(600);
 await page.evaluate(() => window.__vp.warp(28600));

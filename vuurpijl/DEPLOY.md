@@ -9,7 +9,7 @@ Google verandert de regels af en toe. Lees bij twijfel de uitleg in de Play Cons
 
 | Wat | Waar |
 | --- | --- |
-| Play-versie van het spel: geen cheats, echte reclame, Android 16 (API 36) | build-flavor `play` in `android/app/build.gradle` |
+| Play-versie van het spel: echte reclame, Android 16 (API 36) | build-flavor `play` in `android/app/build.gradle` |
 | Pakketnaam (uniek, kan na de eerste upload **nooit** meer veranderen) | `io.github.vscdev90.rocket` |
 | App-bundle (.aab) bouwen en ondertekenen | GitHub Actions, zodra stap 2 gedaan is |
 | Beloningsfilmpjes (AdMob) + toestemmingsformulier voor de EU | `MainActivity.java`, `game.js` |
@@ -19,9 +19,9 @@ Google verandert de regels af en toe. Lees bij twijfel de uitleg in de Play Cons
 
 Er zijn twee versies:
 
-- **`Rocket.apk`** (GitHub Releases) is je testversie: met cheatmodus en de testreclame van Google.
+- **`Rocket.apk`** (GitHub Releases) is je testversie: met de testreclame van Google.
   Deze installeert over je huidige app heen.
-- **`Rocket-play.aab`** is wat je naar Google uploadt: zonder cheats en met jouw echte reclame.
+- **`Rocket-play.aab`** is wat je naar Google uploadt: met jouw echte reclame.
   Dit bestand komt nooit in de openbare releases, alleen in de (privé) bestanden van de GitHub Actions-run.
 
 ## 1. Google Play-ontwikkelaarsaccount
