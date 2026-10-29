@@ -40,6 +40,8 @@ Classic fireworks, Big Bertha with a MEGA bang, a soda bottle with candy, a flyi
 
 🏆 ALWAYS SOMETHING TO DO
 • Daily missions and a bonus chest
+• A new Rocket Pass every month: 30 tiers of prizes and exclusive skins
+• Seasonal events: collect candy at Halloween for a hat you can only get then
 • A 7-day streak with bigger prizes every day, and a mystery box every 8 flights
 • Your fans collect coins while you're away
 • Close calls, golden coins and PERFECT streaks

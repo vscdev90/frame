@@ -11,7 +11,8 @@
   function prestigeMult(save) { return 1 + 0.5 * (save.prestige || 0); }
   function canPrestige(save) { return (save.ends || 0) > 0; }
   // What survives a new universe.
-  const KEEP = ['flights', 'ends', 'moon', 'prestige', 'best', 'achievements', 'skins', 'skin', 'visits', 'counters', 'daily', 'sound', 'tilt'];
+  const KEEP = ['flights', 'ends', 'moon', 'prestige', 'best', 'achievements', 'skins', 'skin', 'visits', 'counters', 'daily', 'sound', 'tilt',
+    'login', 'lastSeen', 'pass', 'event', 'notify', 'bonusTurbo', 'adBoostAt'];
   function prestige(save) {
     const next = L.freshSave();
     for (const k of KEEP) if (save[k] !== undefined) next[k] = save[k];
@@ -29,6 +30,10 @@
     { id: 'propeller', icon: '🧢', name: 'Propeller cap', cost: 40000 },
     { id: 'rainbow',   icon: '🌈', name: 'Rainbow trail', cost: 100000 },
     { id: 'crown',     icon: '👑', name: 'Crown',         ach: 'blackhole' },
+    // only from an event or the Rocket Pass
+    { id: 'witch',     icon: '🧙', name: 'Witch hat',     event: 'halloween' },
+    { id: 'goggles',   icon: '🥽', name: 'Pilot goggles', pass: 15 },
+    { id: 'goldtrail', icon: '✨', name: 'Golden trail',  pass: 30 },
   ];
 
   // ---------- achievements ----------
@@ -176,6 +181,128 @@
     return { kind: 'coins', coins };
   }
 
+  // ---------- seasonal events ----------
+  // A few days a year with their own look, a sweet to collect and a prize you can only get then.
+  // Months count from 0 (9 = October); the last day counts in full.
+  const EVENTS = [
+    { id: 'halloween', icon: '🎃', name: 'Halloween', from: [9, 25], to: [10, 2], item: '🍬', skin: 'witch',
+      steps: [{ at: 40, kind: 'box' }, { at: 80, kind: 'box' }, { at: 120, kind: 'skin' }] },
+  ];
+  function activeEvent(date) {
+    const d = date || new Date();
+    for (const e of EVENTS) {
+      const start = new Date(d.getFullYear(), e.from[0], e.from[1]);
+      const end = new Date(d.getFullYear(), e.to[0], e.to[1] + 1);
+      if (d >= start && d < end) {
+        return Object.assign({ key: e.id + '-' + d.getFullYear(), end: end.getTime(), daysLeft: Math.ceil((end - d) / 86400000), goal: e.steps[e.steps.length - 1].at }, e);
+      }
+    }
+    return null;
+  }
+  // This year's progress; next year starts at zero again.
+  function eventState(save, ev) {
+    if (!save.event || save.event.key !== ev.key) save.event = { key: ev.key, n: 0, paid: 0 };
+    return save.event;
+  }
+  // Adds what you collected and pays every prize reached. Returns those prizes.
+  function addEventItems(save, ev, n, rnd) {
+    const es = eventState(save, ev);
+    es.n += n;
+    const got = [];
+    for (const step of ev.steps) {
+      if (es.paid >= step.at || es.n < step.at) continue;
+      es.paid = step.at;
+      if (step.kind === 'box') got.push(mysteryBox(save, rnd));
+      else got.push(giveSkin(save, ev.skin, 10));
+    }
+    return got;
+  }
+  // A skin you earned; if you already have it, a big pile of coins instead.
+  function giveSkin(save, id, mult) {
+    if (!save.skins.includes(id)) { save.skins.push(id); return { kind: 'skin', skin: SKINS.find((k) => k.id === id) }; }
+    const coins = rewardBase(save) * mult;
+    save.coins += coins;
+    return { kind: 'coins', coins };
+  }
+
+  // ---------- Rocket Pass ----------
+  // Every flight and mission gives XP. Thirty tiers, each with a prize; a fresh pass every month.
+  const PASS_TIERS = 30;
+  function passNeed(tier) { return tier < 10 ? 100 : tier < 20 ? 150 : 200; } // XP to go from tier to tier + 1
+  function passReward(tier) { // tiers count from 1
+    if (tier === 15) return { kind: 'skin', id: 'goggles' };
+    if (tier === 30) return { kind: 'skin', id: 'goldtrail' };
+    if (tier % 5 === 0) return { kind: 'box' };
+    if (tier % 3 === 0) return { kind: 'turbo', n: 2 };
+    return { kind: 'coins', mult: 1 + Math.floor(tier / 6) };
+  }
+  function monthKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+  // The current month's pass (a new month starts a new one).
+  function passState(save, date) {
+    const key = monthKey(date || new Date());
+    if (!save.pass || save.pass.season !== key) save.pass = { season: key, xp: 0, tier: 0 };
+    return save.pass;
+  }
+  function passDaysLeft(date) {
+    const d = date || new Date();
+    return Math.ceil((new Date(d.getFullYear(), d.getMonth() + 1, 1) - d) / 86400000);
+  }
+  function flightXp(f) {
+    return 10 + (f.perfect ? 10 : 0) + Math.min(25, (f.near || 0) * 5) + Math.min(15, Math.floor((f.bestCombo || 0) / 5) * 3) + (f.record ? 20 : 0);
+  }
+  // Adds XP and pays every tier reached. Returns [{ tier, kind, ... }].
+  function addPassXp(save, xp, date, rnd) {
+    const p = passState(save, date);
+    if (p.tier >= PASS_TIERS) return [];
+    p.xp += xp;
+    const got = [];
+    while (p.tier < PASS_TIERS && p.xp >= passNeed(p.tier)) {
+      p.xp -= passNeed(p.tier);
+      p.tier++;
+      const r = passReward(p.tier);
+      let paid;
+      if (r.kind === 'skin') paid = giveSkin(save, r.id, 8);
+      else if (r.kind === 'box') paid = mysteryBox(save, rnd);
+      else if (r.kind === 'turbo') { save.bonusTurbo = (save.bonusTurbo || 0) + r.n; paid = { kind: 'turbo', n: r.n }; }
+      else { const coins = rewardBase(save) * r.mult; save.coins += coins; paid = { kind: 'coins', coins }; }
+      got.push(Object.assign({ tier: p.tier }, paid));
+    }
+    if (p.tier >= PASS_TIERS) p.xp = 0;
+    return got;
+  }
+
+  // ---------- reminders (notifications in the Android app) ----------
+  // A plan of what to say when: at most one a day, only between 10:00 and 20:30, at most three ahead.
+  // Each is { at, kind, ... }; the game turns them into text.
+  function planReminders(save, now, ev) {
+    if (!save.notify || !save.flights) return [];
+    const at = (days, h, m) => { const d = new Date(now); d.setDate(d.getDate() + days); d.setHours(h, m || 0, 0, 0); return d.getTime(); };
+    const today = dayKey(new Date(now));
+    const list = [];
+    // most urgent first: a streak about to break, the last day of an event or a pass, then the rest
+    if (save.login && save.login.streak >= 1 && save.login.day === today) list.push({ at: at(1, 19), kind: 'streak', day: (save.login.streak % 7) + 1 });
+    if (ev && (!save.event || save.event.key !== ev.key || save.event.paid < ev.goal)) {
+      const n = save.event && save.event.key === ev.key ? save.event.n : 0;
+      list.push({ at: at(ev.daysLeft - 1, 12), kind: 'event', n, goal: ev.goal, icon: ev.icon, name: ev.name });
+    }
+    const p = save.pass;
+    if (p && p.season === monthKey(new Date(now)) && p.tier < PASS_TIERS) list.push({ at: at(passDaysLeft(new Date(now)) - 1, 17), kind: 'pass', tier: p.tier });
+    // the fans' coins are full after 8 hours: say so then, moved into the daytime
+    const full = new Date(now + 8 * 3600000);
+    if (full.getHours() < 10) full.setHours(10, 0, 0, 0);
+    else if (full.getHours() * 60 + full.getMinutes() > 20 * 60 + 30) { full.setDate(full.getDate() + 1); full.setHours(10, 0, 0, 0); }
+    list.push({ at: full.getTime(), kind: 'fans', coins: offlineCoins(Object.assign({}, save, { lastSeen: now }), now + 8 * 3600000).coins });
+    list.push({ at: at(3, 18), kind: 'miss', record: save.best || save.record || 0 });
+    const days = new Set(), out = [];
+    for (const r of list) {
+      const day = dayKey(new Date(r.at));
+      if (r.at < now + 30 * 60000 || days.has(day)) continue;
+      days.add(day);
+      out.push(r);
+    }
+    return out.sort((a, b) => a.at - b.at).slice(0, 3);
+  }
+
   // ---------- weather ----------
   // Picked per flight. Rain and snow add drag low down, wind pushes you
   // sideways, and on New Year's Eve everything pays double.
@@ -207,6 +334,8 @@
     prestigeMult, canPrestige, prestige, SKINS, ACHIEVEMENTS, checkAchievements,
     dayKey, dailyMissions, trackMissions, missionDone, WEATHER, rollWeather, BOSSES, nice,
     LOGIN, checkLogin, offlineCoins, mysteryBox, rewardBase,
+    EVENTS, activeEvent, eventState, addEventItems, PASS_TIERS, passNeed, passReward, passState, passDaysLeft, flightXp, addPassXp,
+    planReminders,
   };
   root.VPMeta = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

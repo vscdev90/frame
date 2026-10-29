@@ -38,6 +38,12 @@ Echte merknamen (NASA, F-16, F-35, Mentos, ACME, …) zitten er bewust niet in.
 - 🚀 Na een vlucht: **FLY AGAIN** in één tik, de volgende upgrade direct te koop, en "SO CLOSE!" als je net onder je record bleef.
 - 🌙 Welkom terug: je fans sparen munten terwijl je weg bent (tot 8 uur).
 - 🔥 Dagelijkse reeks van 7 dagen met steeds grotere prijzen, en elke 8e vlucht een 🎁 mystery box.
+- 🎫 Rocket Pass: elke maand een nieuwe pas met 30 treden. Elke vlucht en missie geeft XP, elke trede een prijs
+  (munten, turbo, mystery boxes, en op trede 15 en 30 een skin die je alleen zo krijgt).
+- 🎃 Events: met Halloween (25 oktober t/m 2 november) een oranje maan, vleermuizen, spookjes, pompoenen en snoepjes 🍬
+  om te verzamelen. Bij 40 en 80 snoepjes een mystery box, bij 120 de 🧙 heksenhoed, die er alleen dan is.
+- 🔔 Herinneringen (alleen in de Android-app, alleen als je ja zegt): hooguit één per dag, overdag, bijvoorbeeld als je
+  fans munten hebben gespaard of je reeks bijna verloren gaat. Uit te zetten in de verzameling.
 - Tijdens de vlucht zie je hoe ver het nog is naar de volgende planeet.
 
 **Show:** opstartscherm met menu-muziek (zelf gesynthetiseerd, geen audiobestanden), een aftelling met stem voor de

@@ -1,12 +1,16 @@
 package nl.vuurpijl.game;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.util.Base64;
 import android.view.DisplayCutout;
@@ -49,6 +53,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MainActivity extends Activity {
 
     private static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
+    private static final int REQ_NOTIFY = 7;
+
+    /** True while the game is on screen; reminders are not posted then. */
+    static volatile boolean inFront;
 
     private WebView web;
     private TextToSpeech tts;
@@ -119,6 +127,8 @@ public class MainActivity extends Activity {
 
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
         web.loadUrl(START_URL);
+
+        ReminderReceiver.createChannel(this);
 
         setUpAds();
     }
@@ -252,6 +262,44 @@ public class MainActivity extends Activity {
                     == ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED;
         }
 
+        /** "granted", "ask" (Android can ask the player) or "denied" (only the phone's settings can turn them on). */
+        @JavascriptInterface
+        public String notifyStatus() {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null && nm.areNotificationsEnabled()) return "granted";
+            return Build.VERSION.SDK_INT >= 33 ? "ask" : "denied";
+        }
+
+        /** Android 13+ asks for permission; the answer comes back through window.vpNotifyDone(granted). */
+        @JavascriptInterface
+        public void requestNotify() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY);
+                } else {
+                    notifyDone(true);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void openNotifySettings() {
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
+                } catch (Exception e) {
+                    // no such settings screen on this phone
+                }
+            });
+        }
+
+        /** The game's plan of reminders: a JSON list of {at, title, text}; replaces the old plan. */
+        @JavascriptInterface
+        public void scheduleNotifications(String json) {
+            ReminderReceiver.schedule(MainActivity.this, json);
+        }
+
         @JavascriptInterface
         public void showPrivacyOptions() {
             runOnUiThread(() -> UserMessagingPlatform.showPrivacyOptionsForm(MainActivity.this, formError -> {
@@ -259,6 +307,19 @@ public class MainActivity extends Activity {
                 startAds();
             }));
         }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_NOTIFY) {
+            notifyDone(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED);
+        }
+    }
+
+    private void notifyDone(boolean granted) {
+        web.evaluateJavascript("window.vpNotifyDone && window.vpNotifyDone(" + granted + ")", null);
+        hideSystemBars();
     }
 
     /** Tells the page how tall the camera cut-out is, in CSS pixels. */
@@ -315,6 +376,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        inFront = false;
+        // the game saves now, which also plans the reminders for while it is closed
+        web.evaluateJavascript("window.vpPause && window.vpPause()", null);
         web.onPause();
         super.onPause();
     }
@@ -322,8 +386,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        inFront = true;
         web.onResume();
         hideSystemBars();
+        // back in the game: reminders still showing are old news
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) nm.cancelAll();
     }
 
     @Override

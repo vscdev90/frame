@@ -47,6 +47,19 @@
     <div class="progress"><div id="moon-progress"></div><span class="moon-ico" id="goal-ico">🌕</span></div>
     <div class="universe" id="shop-universe"></div>
 
+    <!-- a seasonal event, only while it runs -->
+    <section id="event" class="event hidden">
+      <div class="ev-top"><b id="event-title"></b><span id="event-days"></span></div>
+      <div class="ev-text" id="event-text"></div>
+      <div class="bar"><i id="event-bar"></i></div>
+    </section>
+    <!-- Rocket Pass: tap for all tiers -->
+    <section id="pass" class="pass" role="button">
+      <div class="ev-top"><b data-i18n="passHead">🎫 ROCKET PASS</b><span id="pass-days"></span></div>
+      <div class="ps-row"><b id="pass-tier"></b><span id="pass-next"></span><span class="ps-more">›</span></div>
+      <div class="bar"><i id="pass-bar"></i></div>
+    </section>
+
     <h3 class="sec" data-i18n="missionsHead">Daily missions</h3>
     <section id="missions"></section>
 
@@ -100,6 +113,7 @@
     <div class="res-line"><span data-i18n="resBonus">Bang bonus</span><b id="res-bonus"></b></div>
     <div class="res-line" id="res-zone-line"><span data-i18n="resZone">New zone</span><b id="res-zone"></b></div>
     <div class="res-line" id="res-combo-line"><span data-i18n="resCombo">Best combo</span><b id="res-combo"></b></div>
+    <div class="res-line"><span data-i18n="resPass">🎫 Rocket Pass</span><b id="res-pass"></b></div>
     <div class="res-line" id="res-ach-line"><span data-i18n="resAch">Achievements</span><b id="res-ach"></b></div>
     <div class="res-total"><span data-i18n="resTotal">Total</span><b id="res-total"></b></div>
     <div class="res-badges" id="res-badges"></div>
@@ -132,7 +146,18 @@
     <section class="starmap" id="starmap"></section>
     <h3 class="sec" data-i18n="achHead">Achievements</h3>
     <section class="badges" id="badges"></section>
+    <button id="btn-notify" class="ghost wide privacy hidden"></button>
     <button id="btn-privacy" class="ghost wide privacy hidden" data-i18n="privacy">Privacy &amp; ad settings</button>
+  </div>
+
+  <!-- Rocket Pass: every tier and its prize -->
+  <div id="passview" class="panel hidden">
+    <header class="shop-top">
+      <div class="title small" data-i18n="passTitle">Rocket Pass</div>
+      <button id="btn-close-pass" class="ghost lang" aria-label="Close">✕</button>
+    </header>
+    <div class="record" id="pass-info"></div>
+    <section class="tiers" id="pass-tiers"></section>
   </div>
 
   <div id="countdown" class="hidden"></div>
@@ -142,6 +167,7 @@
     <div class="splash-rocket">🚀</div>
     <div class="splash-title">ROCKET<span>!</span></div>
     <div class="splash-sub">Light it. Fly it. Blow it up.</div>
+    <div class="splash-event" id="splash-event"></div>
     <div class="splash-tap">Tap to start</div>
   </div>
 

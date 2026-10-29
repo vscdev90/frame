@@ -39,7 +39,14 @@
   delete save.cheats; delete save.god; delete save.infFuel;
   // what you earned while away is worked out once, before the first save stamps a new time
   const awayAtStart = M.offlineCoins(save, Date.now());
-  function store() { save.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+  // a seasonal event (Halloween…) while it runs, else null; looked at again before every flight
+  let EV = M.activeEvent(new Date());
+  let sentPlan = ''; // the reminders last handed to the Android app
+  function store() {
+    save.lastSeen = Date.now();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ }
+    syncReminders();
+  }
 
   // ---------- haptics ----------
   function vib(ms) {
@@ -369,6 +376,7 @@
   // mode: undefined = full burst, 'dim' = far-away neighbour fireworks,
   // 'small' = the little follow-up bursts of a crossette
   const RAINBOW = ['#ff4d6d', '#ff8c1a', '#ffd23f', '#7cfc00', '#4cc9f0', '#c77dff'];
+  const GOLDTRAIL = ['#fff6c8', '#ffe08a', '#ffd23f', '#f2a500', '#ffffff'];
   const EXHAUST = {
     fire: ['#ffb703', '#fff6c8'], blue: ['#4cc9f0', '#ffffff'], foam: ['#c8a27a', '#ffffff', '#f1e3c4'],
     water: ['#90e0ef', '#ffffff'], gas: ['#9acd32', '#c5e478'], bubbles: ['#ffd23f', '#fff8e0'], beam: ['#7cfc00', '#c8ffb0'],
@@ -506,7 +514,11 @@
       return;
     }
     if (roll < 0.58 || y < 25) {
-      if (Math.random() < 0.3) {
+      if (EV && y > 25 && Math.random() < 0.3) {
+        // the event's sweets: a short row right on your path, so every flight brings some home
+        const px = rocket.x + rocket.vx * 0.4 + (rand(-1, 1) * W * 0.08) / cam.ppm;
+        for (let i = 0; i < 3; i++) objects.push({ type: 'candy', x: px, y: y + (i * 40) / cam.ppm, r: 13, vxs: 0, t: Math.random() * 6 });
+      } else if (Math.random() < 0.3) {
         for (let i = 0; i < 4; i++) objects.push({ type: 'coin', x, y: y + (i * 34) / cam.ppm, r: 11, v: coinVal, vxs: 0 });
       } else if (Math.random() < 0.025) {
         objects.push({ type: 'coin', gold: true, x, y, r: 15, v: coinVal * 10, vxs: 0 }); // rare and worth ten
@@ -527,7 +539,9 @@
       else if (y > 150) type = Math.random() < 0.3 ? 'balloon' : 'bird';
       const dir = Math.random() < 0.5 ? -1 : 1;
       const speed = { bird: 70, plane: 130, balloon: 15, sat: 50, meteor: 160, rock: 30, alien: 120 }[type];
-      objects.push({ type, x, y, r: type === 'plane' ? 22 : 17, vxs: dir * speed * rand(0.7, 1.2), dir, hit: false, t: Math.random() * 6 });
+      // at Halloween the birds are bats and the balloons are ghosts
+      const spooky = !!EV && (type === 'bird' || type === 'balloon');
+      objects.push({ type, x, y, r: type === 'plane' ? 22 : 17, vxs: dir * speed * rand(0.7, 1.2), dir, hit: false, t: Math.random() * 6, spooky });
     }
   }
 
@@ -614,6 +628,12 @@
       sfx.coin();
       if (uiCoins.length < 30) uiCoins.push({ x: sx, y: sy, t: 0 });
       for (let i = 0; i < 6; i++) part(o.x, o.y, { vx: rand(-80, 80), vy: rand(-80, 80), life: 0.4, size: 2, color: '#ffd23f' });
+    } else if (o.type === 'candy') {
+      o.dead = true;
+      fl.candy++;
+      floatText(o.x, o.y, '+1 ' + (EV ? EV.item : '🍬'), '#ffb347');
+      tone(990, 0.08, 'triangle', 0.12, 1480); tone(1480, 0.12, 'triangle', 0.08, null, 0.07); vib(15);
+      for (let i = 0; i < 12; i++) part(o.x, o.y, { vx: rand(-130, 130), vy: rand(-130, 130), drag: 0.93, life: 0.5, size: 2.5, color: i % 2 ? '#ff8c1a' : '#c77dff', sparkle: true });
     } else if (o.type === 'fuel') {
       o.dead = true;
       rocket.fuel += 0.7;
@@ -679,12 +699,14 @@
 
   function goShop() {
     state = 'shop';
+    EV = M.activeEvent(new Date());
     musicStart();
     resetCamera();
     show('result', false); show('hud', false); show('ignite', false);
     renderShop();
     show('shop', true);
     flushLater();
+    if (!rewardOpen) maybeAskNotify();
   }
 
   function resetCamera() {
@@ -697,6 +719,7 @@
   function goIgnite() {
     audioInit();
     musicStop();
+    EV = M.activeEvent(new Date());
     const id = M.rollWeather(new Date(), Math.random());
     weather = { id, wind: id === 'wind' ? (Math.random() < 0.5 ? -1 : 1) * rand(4, 8) : 0 };
     const w = M.WEATHER[id];
@@ -753,7 +776,7 @@
     show('countdown', false);
     rocket = L.newRocket(st, boost);
     Object.assign(rocket, { shield: false, magnetT: 0, slowT: 0 });
-    fl = { bestCombo: 0, hits: 0, perfect: boost >= 1.3, powerups: 0, near: 0 };
+    fl = { bestCombo: 0, hits: 0, perfect: boost >= 1.3, powerups: 0, near: 0, candy: 0 };
     if (fl.perfect) save.counters.perfects++;
     // PERFECT launches in a row stack up a little extra push
     save.perfectStreak = fl.perfect ? (save.perfectStreak || 0) + 1 : 0;
@@ -902,7 +925,12 @@
     const achCoins = got.reduce((n, a) => n + a.reward, 0);
     const total = rocket.coins + bonus + zoneBonus + achCoins;
     save.coins += total;
+    // the Rocket Pass and the event: XP and sweets, with a popup for every prize
+    const xp = M.flightXp(Object.assign({}, summary, { record: newRecord }));
+    const tiers = M.addPassXp(save, xp);
+    const prizes = EV && fl.candy ? M.addEventItems(save, EV, fl.candy) : [];
     store();
+    $('res-pass').textContent = T('xp')(xp) + (fl.candy ? '  ·  ' + EV.item + ' +' + fl.candy : '');
     $('res-combo').textContent = fl.bestCombo;
     show('res-ach-line', got.length > 0);
     $('res-ach').textContent = '+' + fmt(achCoins) + ' 🪙';
@@ -920,13 +948,15 @@
     if (soClose) $('res-close').textContent = T('soClose')(fmt(Math.ceil(shortBy)));
     countUp('res-total', total, '+', ' 🪙', 0.5);
     renderNextGoal();
+    for (const r of prizes) laterRewards.push({ icon: EV.icon, title: T('eventPrize')(EV.name), text: rewardText(r), coins: r.coins || 0 });
+    for (const r of tiers) laterRewards.push(passPopup(r));
     if (save.flights % 8 === 0) {
       const box = M.mysteryBox(save);
       store();
-      // shown once the totals have counted up; if you already flew off again, it waits for the shed
-      laterReward = { icon: '🎁', title: T('boxTitle'), text: rewardText(box), coins: box.coins || 0 };
-      setTimeout(() => { if (state === 'result') flushLater(); }, 1400);
+      laterRewards.push({ icon: '🎁', title: T('boxTitle'), text: rewardText(box), coins: box.coins || 0 });
     }
+    // shown once the totals have counted up; if you already flew off again, they wait for the shed
+    if (laterRewards.length) setTimeout(() => { if (state === 'result') flushLater(); }, 1400);
     lastTotal = total; doubled = false;
     show('btn-ad-double', false);
     show('result', true);
@@ -1043,13 +1073,20 @@
     rewardQueue.push(r);
     if (!rewardOpen) nextReward();
   }
-  let laterReward = null;
+  const laterRewards = [];
   function flushLater() {
-    if (laterReward) { popReward(laterReward); laterReward = null; }
+    while (laterRewards.length) popReward(laterRewards.shift());
+  }
+  function passPopup(r) {
+    return { icon: '🎫', title: T('passUp')(r.tier), text: rewardText(r), coins: r.coins || 0 };
+  }
+  // XP outside a flight (missions, the chest)
+  function passXp(n) {
+    for (const r of M.addPassXp(save, n)) popReward(passPopup(r));
   }
   function nextReward() {
     rewardOpen = rewardQueue.shift() || null;
-    if (!rewardOpen) { show('reward', false); return; }
+    if (!rewardOpen) { show('reward', false); maybeAskNotify(); return; }
     const r = rewardOpen;
     $('reward-icon').textContent = r.icon;
     $('reward-title').textContent = r.title;
@@ -1108,6 +1145,59 @@
     if (state === 'shop') renderShop();
   }
 
+  // ---------- reminders (Android app only) ----------
+  // The game plans them (at most one a day, see meta.js) and the app posts them while the game is closed.
+  function bridge(fn) {
+    try { return window.AndroidBridge && typeof window.AndroidBridge[fn] === 'function' ? window.AndroidBridge : null; } catch (e) { return null; }
+  }
+  function reminderText(r) {
+    const n = {
+      fans: [T('n_fansT')(fmt(r.coins)), T('n_fans')],
+      streak: [T('n_streakT')(r.day), T('n_streak')],
+      event: [T('n_eventT')(r.icon, r.name), T('n_event')(r.n, r.goal)],
+      pass: [T('n_passT'), T('n_pass')(r.tier, M.PASS_TIERS)],
+      miss: [T('n_missT'), T('n_miss')(fmt(r.record))],
+    }[r.kind];
+    return { at: Math.ceil(r.at / 900000) * 900000, title: n[0], text: n[1] }; // whole quarters, so the plan rarely changes
+  }
+  function syncReminders() {
+    const b = bridge('scheduleNotifications');
+    if (!b) return;
+    const json = JSON.stringify(M.planReminders(save, Date.now(), EV).map(reminderText));
+    if (json === sentPlan) return;
+    sentPlan = json;
+    try { b.scheduleNotifications(json); } catch (e) { /* nothing then */ }
+  }
+  // Ask once, in our own words first, after a few flights; Android then asks for the permission.
+  let notifyAsked = false;
+  async function maybeAskNotify() {
+    if (!bridge('notifyStatus') || save.notify !== undefined || notifyAsked || save.flights < 3) return;
+    if (!$('splash').classList.contains('gone') || !(state === 'shop' || state === 'result')) return;
+    if (!$('modal').classList.contains('hidden')) return;
+    notifyAsked = true;
+    setNotify(await ask(T('notifyAsk'), T('notifyYes'), T('notifyNo')));
+  }
+  function setNotify(on) {
+    const b = bridge('notifyStatus');
+    if (!on || !b) { save.notify = false; store(); renderNotifyBtn(); return; }
+    let status = 'granted';
+    try { status = b.notifyStatus(); } catch (e) { /* assume it is fine */ }
+    if (status === 'ask') { b.requestNotify(); return; } // the answer comes back through vpNotifyDone
+    save.notify = true; store(); renderNotifyBtn();
+    if (status === 'granted') toast(T('notifyOnToast'), 1600);
+    else { toast(T('notifySettings'), 2600); try { b.openNotifySettings(); } catch (e) { /* no settings screen */ } }
+  }
+  window.vpNotifyDone = (granted) => {
+    save.notify = !!granted; store(); renderNotifyBtn();
+    toast(granted ? T('notifyOnToast') : T('notifySettings'), granted ? 1600 : 2600);
+  };
+  function renderNotifyBtn() {
+    show('btn-notify', !!bridge('notifyStatus'));
+    $('btn-notify').textContent = save.notify ? T('notifyOn') : T('notifyOff');
+  }
+  // the app is going to the background: save now (which also plans the reminders)
+  window.vpPause = () => { store(); return 'ok'; };
+
   // ---------- shop ----------
   function renderShop() {
     st = L.stats(save);
@@ -1135,6 +1225,8 @@
     }
     drawPreview();
     renderChoices();
+    renderEvent();
+    renderPass();
     renderMissions();
     const pm = M.prestigeMult(save);
     $('shop-universe').textContent = save.prestige ? T('universe')(save.prestige + 1, pm) : '';
@@ -1168,6 +1260,57 @@
       el.appendChild(b);
       box.appendChild(el);
     }
+  }
+
+  // ---------- the event banner, the Rocket Pass card and its list of tiers ----------
+  function renderEvent() {
+    show('event', !!EV);
+    if (!EV) return;
+    const es = M.eventState(save, EV);
+    const next = EV.steps.find((st2) => st2.at > es.paid);
+    $('event-title').textContent = EV.icon + ' ' + EV.name.toUpperCase();
+    $('event-days').textContent = T('eventDays')(EV.daysLeft);
+    $('event-text').textContent = next
+      ? T('eventNext')(EV.item, fmt(Math.min(es.n, next.at)), fmt(next.at), next.kind === 'skin' ? skinLabel(EV.skin) : '🎁 ' + T('boxName'))
+      : T('eventDone');
+    $('event-bar').style.width = clamp((es.n / EV.goal) * 100, 0, 100) + '%';
+  }
+  function skinLabel(id) { const k = M.SKINS.find((x) => x.id === id); return k.icon + ' ' + k.name; }
+  function prizeIcon(r) {
+    if (r.kind === 'skin') return M.SKINS.find((x) => x.id === r.id).icon;
+    return { coins: '🪙', turbo: '⚡', box: '🎁' }[r.kind];
+  }
+  function prizeLabel(r) {
+    if (r.kind === 'skin') return M.SKINS.find((x) => x.id === r.id).name;
+    if (r.kind === 'coins') return fmt(M.rewardBase(save) * r.mult);
+    if (r.kind === 'turbo') return '+' + r.n;
+    return T('boxName');
+  }
+  function renderPass() {
+    const p = M.passState(save);
+    const done = p.tier >= M.PASS_TIERS;
+    $('pass-tier').textContent = T('passTier')(p.tier, M.PASS_TIERS);
+    $('pass-days').textContent = T('passDays')(M.passDaysLeft());
+    const nr = M.passReward(p.tier + 1);
+    $('pass-next').textContent = done ? T('passDone') : T('passNext')(prizeIcon(nr) + ' ' + prizeLabel(nr), fmt(p.xp), fmt(M.passNeed(p.tier)));
+    $('pass-bar').style.width = done ? '100%' : clamp((p.xp / M.passNeed(p.tier)) * 100, 0, 100) + '%';
+  }
+  function openPass() {
+    audioInit();
+    const p = M.passState(save);
+    $('pass-info').textContent = T('passInfo')(M.passDaysLeft());
+    const box = $('pass-tiers');
+    box.innerHTML = '';
+    for (let t = 1; t <= M.PASS_TIERS; t++) {
+      const r = M.passReward(t);
+      const el = document.createElement('div');
+      el.className = 'tier' + (t <= p.tier ? ' done' : t === p.tier + 1 ? ' now' : '') + (r.kind === 'skin' ? ' big' : '');
+      el.innerHTML = '<b>' + t + '</b><span>' + prizeIcon(r) + '</span><small>' + prizeLabel(r) + '</small>';
+      box.appendChild(el);
+    }
+    show('passview', true);
+    const now = box.querySelector('.now');
+    if (now) now.scrollIntoView({ block: 'center' });
   }
 
   function missionText(m) {
@@ -1204,8 +1347,8 @@
     cb.disabled = d.chest || !all;
     cb.addEventListener('click', () => {
       if (d.chest || !all) return;
-      d.chest = true; save.coins += d.reward * 2; store();
-      sfx.perfect(); vib(80); toast(T('chest') + ' +' + fmt(d.reward * 2), 1200);
+      d.chest = true; save.coins += d.reward * 2; passXp(30); store();
+      sfx.perfect(); vib(80); toast(T('chest') + ' +' + fmt(d.reward * 2) + '  ·  ' + T('xp')(30), 1400);
       renderShop();
     });
     chest.appendChild(cb);
@@ -1217,13 +1360,17 @@
     if (m.claimed || !M.missionDone(m)) return;
     m.claimed = true;
     save.coins += save.daily.reward;
+    passXp(15);
     store(); sfx.buy(); vib(30);
+    toast(T('xp')(15), 800);
     renderShop();
   }
 
   // Yes/no in our own dialog (Android's WebView silently answers window.confirm with "no").
-  function ask(text) {
+  function ask(text, yes, no) {
     $('modal-text').textContent = text;
+    $('modal-yes').textContent = yes || T('yes');
+    $('modal-no').textContent = no || T('no');
     show('modal', true);
     return new Promise((resolve) => {
       const done = (v) => { show('modal', false); $('modal-yes').onclick = $('modal-no').onclick = null; resolve(v); };
@@ -1256,6 +1403,7 @@
     let privacy = false;
     try { privacy = !!(window.AndroidBridge && window.AndroidBridge.privacyOptionsRequired()); } catch (e) { /* browser */ }
     show('btn-privacy', privacy);
+    renderNotifyBtn();
     const december = new Date().getMonth() === 11;
     const sk = $('skins');
     sk.innerHTML = '';
@@ -1263,10 +1411,12 @@
       const owned = save.skins.includes(k.id) || (k.december && december);
       const achOk = k.ach && save.achievements.includes(k.ach);
       let sub = '';
+      const special = k.event || k.pass;
       if (!owned && k.ach) sub = achOk ? '✓' : '🔒 ' + T('skinAch');
+      else if (!owned && special) sub = k.event ? '🎃 ' + T('skinEvent') : '🎫 ' + T('skinPass')(k.pass);
       else if (!owned) sub = fmt(k.cost) + ' 🪙' + (k.december ? ' · ' + T('skinXmas') : '');
-      const cls = (save.skin === k.id ? 'sel' : '') + (!owned && !achOk && (k.ach || save.coins < k.cost) ? ' locked' : '') +
-        (!owned && !k.ach && save.coins >= k.cost ? ' buyable' : '');
+      const cls = (save.skin === k.id ? 'sel' : '') + (!owned && !achOk && (k.ach || special || save.coins < k.cost) ? ' locked' : '') +
+        (!owned && !k.ach && !special && save.coins >= k.cost ? ' buyable' : '');
       sk.appendChild(chip(k.icon, k.name, sub ? [sub] : [], cls, () => pickSkin(k, owned || achOk)));
     });
     const map = $('starmap');
@@ -1292,7 +1442,7 @@
   function pickSkin(k, free) {
     if (!save.skins.includes(k.id)) {
       if (!free) {
-        if (k.ach || save.coins < k.cost) { sfx.nope(); return; }
+        if (k.ach || !k.cost || save.coins < k.cost) { sfx.nope(); return; }
         save.coins -= k.cost;
         sfx.perfect(); vib(40);
       }
@@ -1531,9 +1681,21 @@
   const CRAFT_TOP = { ufo: -46, nasa: -72, wortel: -70, banaan: -66, koe: -62, varken: -63, gas: -62, jager: -64, hover: -64, stealth: -64 };
   function drawAccessory(c, top) {
     const k = save.skin;
-    if (!k || k === 'none' || k === 'rainbow') return;
+    if (!k || k === 'none' || k === 'rainbow' || k === 'goldtrail') return;
     const P = (pts, col) => { c.fillStyle = col; c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py))); c.closePath(); c.fill(); };
-    if (k === 'shades') {
+    if (k === 'witch') {
+      c.fillStyle = '#2b1740'; c.beginPath(); c.ellipse(0, top + 1, 12, 3, 0, 0, 7); c.fill(); // brim
+      P([[-7, top], [7, top], [4, top - 10], [9, top - 20], [1, top - 12]], '#3c1f5c');
+      c.fillStyle = '#ff8c1a'; c.fillRect(-6.5, top - 3, 13, 2.5);
+      c.fillStyle = '#ffd23f'; c.fillRect(-1.5, top - 3.5, 3, 3.5);
+    } else if (k === 'goggles') {
+      c.strokeStyle = '#6b3d1f'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-10, top + 12); c.lineTo(10, top + 12); c.stroke();
+      [-4, 4].forEach((gx) => {
+        c.fillStyle = '#c0c0c0'; c.beginPath(); c.arc(gx, top + 12, 4, 0, 7); c.fill();
+        c.fillStyle = '#4cc9f0'; c.beginPath(); c.arc(gx, top + 12, 2.8, 0, 7); c.fill();
+        c.fillStyle = 'rgba(255,255,255,.8)'; c.fillRect(gx - 1.5, top + 10, 1.2, 1.2);
+      });
+    } else if (k === 'shades') {
       c.fillStyle = '#111'; c.fillRect(-8, top + 14, 7, 4); c.fillRect(1, top + 14, 7, 4); c.fillRect(-2, top + 15, 4, 1.5);
     } else if (k === 'party') {
       P([[-6, top + 2], [0, top - 16], [6, top + 2]], '#c77dff');
@@ -1899,6 +2061,7 @@
     if (env.bolt && env.flash > 0.25) drawBolt();
 
     drawBodies(h);
+    if (EV && EV.id === 'halloween' && h < 1500) drawBats(1 - h / 1500);
 
     // clouds
     const cloudA = h < 120 ? h / 120 : h < 1600 ? 1 : clamp(1 - (h - 1600) / 800, 0, 1);
@@ -1989,7 +2152,7 @@
     g.addColorStop(0, 'rgba(' + gc + ',.25)'); g.addColorStop(1, 'rgba(' + gc + ',0)');
     cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r * 2.2, 0, 7); cx.fill();
     if (kind === 'moon') {
-      disc('#f4f1de');
+      disc(EV && EV.id === 'halloween' ? '#ffcf7a' : '#f4f1de');
       [[-0.3, -0.2, 0.22], [0.25, 0.1, 0.16], [-0.05, 0.4, 0.12], [0.35, -0.35, 0.1]].forEach(([a, b, rr]) => spot(a, b, rr, 'rgba(160,150,130,.45)'));
     } else if (kind === 'mars') {
       disc('#c1440e');
@@ -2072,6 +2235,52 @@
   ];
 
   // Calls fn(i) for every slot of the given width (metres) that is on screen.
+  // a small flock of bats crossing the sky
+  function drawBats(a) {
+    cx.fillStyle = 'rgba(20,10,30,' + 0.85 * a + ')';
+    for (let i = 0; i < 6; i++) {
+      const sp = 18 + hash(i + 70) * 22;
+      const x = ((hash(i + 40) * W * 1.4 + time * sp) % (W * 1.4)) - W * 0.2;
+      const y = H * (0.08 + hash(i + 50) * 0.3) + Math.sin(time * 1.3 + i) * 12;
+      const s = 0.6 + hash(i + 60) * 0.7, f = Math.sin(time * 12 + i * 2) * 5 * s;
+      cx.beginPath();
+      cx.moveTo(x, y);
+      cx.quadraticCurveTo(x - 6 * s, y - 4 * s - f, x - 13 * s, y - f);
+      cx.quadraticCurveTo(x - 8 * s, y + 1, x - 4 * s, y + 3 * s);
+      cx.lineTo(x, y + 2 * s);
+      cx.lineTo(x + 4 * s, y + 3 * s);
+      cx.quadraticCurveTo(x + 8 * s, y + 1, x + 13 * s, y - f);
+      cx.quadraticCurveTo(x + 6 * s, y - 4 * s - f, x, y);
+      cx.fill();
+    }
+  }
+  // glowing jack-o'-lanterns along the ground
+  function drawPumpkins(p, gy) {
+    eachSlot(9, (i) => {
+      if (((i % 3) + 3) % 3 === 1) return;
+      const [x] = w2s(i * 9 + 3 + hash(i + 900) * 3, 0);
+      drawPumpkin(x, gy, p * (0.75 + hash(i + 910) * 0.4), i);
+    });
+  }
+  function drawPumpkin(x, gy, s, i) {
+    const flick = 0.75 + 0.25 * Math.sin(time * 9 + i * 3) * Math.sin(time * 5.3 + i);
+    const r = 2.2 * s;
+    const glow = cx.createRadialGradient(x, gy - r, 0, x, gy - r, r * 3.2);
+    glow.addColorStop(0, 'rgba(255,170,40,' + 0.35 * flick + ')'); glow.addColorStop(1, 'rgba(255,170,40,0)');
+    cx.fillStyle = glow; cx.beginPath(); cx.arc(x, gy - r, r * 3.2, 0, 7); cx.fill();
+    [-0.55, 0.55, 0].forEach((dx, k) => {
+      cx.fillStyle = k === 2 ? '#ff8c1a' : '#e06a00';
+      cx.beginPath(); cx.ellipse(x + dx * r, gy - r * 0.95, r * (k === 2 ? 0.7 : 0.62), r * 0.92, 0, 0, 7); cx.fill();
+    });
+    cx.fillStyle = '#3b7d2a'; cx.fillRect(x - r * 0.12, gy - r * 2.15, r * 0.24, r * 0.4);
+    cx.fillStyle = 'rgba(255,230,120,' + flick + ')';
+    const tri = (tx, ty, w) => { cx.beginPath(); cx.moveTo(tx - w, ty + w * 0.7); cx.lineTo(tx, ty - w * 0.7); cx.lineTo(tx + w, ty + w * 0.7); cx.fill(); };
+    tri(x - r * 0.4, gy - r * 1.2, r * 0.2); tri(x + r * 0.4, gy - r * 1.2, r * 0.2);
+    cx.beginPath(); cx.moveTo(x - r * 0.55, gy - r * 0.7);
+    for (let k = 1; k <= 6; k++) cx.lineTo(x - r * 0.55 + (k * r * 1.1) / 6, gy - r * (k % 2 ? 0.55 : 0.7));
+    cx.lineTo(x + r * 0.45, gy - r * 0.35); cx.lineTo(x - r * 0.45, gy - r * 0.35); cx.closePath(); cx.fill();
+  }
+
   function eachSlot(slot, fn) {
     const p = cam.ppm;
     const left = Math.floor((cam.x - W / 2 / p) / slot) - 2, right = Math.ceil((cam.x + W / 2 / p) / slot) + 1;
@@ -2429,6 +2638,7 @@
     if (site === 'tuin' || site === 'stad') drawLamps(p, site === 'stad' ? 20 : 14, site === 'stad' ? 10 : 7);
     if (site === 'strand') drawPalms(p);
     drawCrowd(p);
+    if (EV && EV.id === 'halloween') drawPumpkins(p, gy);
     if (state === 'shop' || state === 'ignite' || (rocket && rocket.y < 60)) {
       const [bx] = w2s(0, 0);
       drawLauncher(site, bx, gy, p / 6);
@@ -2573,8 +2783,42 @@
           cx.strokeStyle = '#123a7a'; cx.lineWidth = 1.6; cx.stroke();
           cx.fillStyle = '#123a7a'; cx.fillRect(-3.5, -2, 1.6, 3); cx.fillRect(2, -2, 1.6, 3);
           break;
+        case 'candy': {
+          const gl = cx.createRadialGradient(0, 0, 3, 0, 0, 24);
+          gl.addColorStop(0, 'rgba(255,170,60,.5)'); gl.addColorStop(1, 'rgba(255,170,60,0)');
+          cx.fillStyle = gl; cx.beginPath(); cx.arc(0, 0, 24, 0, 7); cx.fill();
+          cx.rotate(Math.sin(time * 3 + o.t) * 0.5);
+          cx.fillStyle = '#c77dff';
+          cx.beginPath(); cx.moveTo(-8, 0); cx.lineTo(-17, -7); cx.lineTo(-15, 0); cx.lineTo(-17, 7); cx.fill();
+          cx.beginPath(); cx.moveTo(8, 0); cx.lineTo(17, -7); cx.lineTo(15, 0); cx.lineTo(17, 7); cx.fill();
+          cx.fillStyle = '#ff8c1a'; cx.beginPath(); cx.arc(0, 0, 9, 0, 7); cx.fill();
+          cx.save(); cx.beginPath(); cx.arc(0, 0, 9, 0, 7); cx.clip();
+          cx.strokeStyle = '#fff3e0'; cx.lineWidth = 2.6;
+          for (let k = -2; k <= 2; k++) { cx.beginPath(); cx.moveTo(k * 6 - 8, -10); cx.lineTo(k * 6 + 8, 10); cx.stroke(); }
+          cx.restore();
+          cx.strokeStyle = '#8a3d00'; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(0, 0, 9, 0, 7); cx.stroke();
+          cx.fillStyle = 'rgba(255,255,255,.7)'; cx.beginPath(); cx.ellipse(-3, -4, 2.5, 1.5, -0.5, 0, 7); cx.fill();
+          break;
+        }
         case 'bird': {
           cx.scale(o.dir, 1);
+          if (o.spooky) { // a bat: leathery wings, big ears, glowing eyes, a faint moonlit rim
+            const f = Math.sin(o.t * 16) * 7;
+            cx.scale(1.3, 1.3);
+            cx.fillStyle = '#2a1840'; cx.strokeStyle = 'rgba(210,170,255,.55)'; cx.lineWidth = 1.2;
+            cx.beginPath();
+            cx.moveTo(0, -2);
+            cx.quadraticCurveTo(-8, -9 - f, -18, -3 - f);
+            cx.quadraticCurveTo(-14, 0, -12, 4); cx.quadraticCurveTo(-9, 1, -6, 5); cx.quadraticCurveTo(-4, 2, 0, 4);
+            cx.quadraticCurveTo(4, 2, 6, 5); cx.quadraticCurveTo(9, 1, 12, 4); cx.quadraticCurveTo(14, 0, 18, -3 - f);
+            cx.quadraticCurveTo(8, -9 - f, 0, -2);
+            cx.fill(); cx.stroke();
+            cx.beginPath(); cx.ellipse(0, 0, 4.5, 5.5, 0, 0, 7); cx.fill();
+            cx.beginPath(); cx.moveTo(-3.5, -3); cx.lineTo(-2.5, -9); cx.lineTo(-0.5, -4); cx.moveTo(3.5, -3); cx.lineTo(2.5, -9); cx.lineTo(0.5, -4); cx.fill();
+            cx.fillStyle = 'rgba(255,60,60,.35)'; cx.beginPath(); cx.arc(0, -1.2, 4, 0, 7); cx.fill();
+            cx.fillStyle = '#ff5252'; cx.fillRect(-2.2, -2, 1.8, 1.8); cx.fillRect(0.4, -2, 1.8, 1.8);
+            break;
+          }
           const f = Math.sin(o.t * 14) * 8;
           cx.strokeStyle = '#ddd'; cx.lineWidth = 3; cx.lineCap = 'round';
           cx.beginPath(); cx.moveTo(-14, -f); cx.quadraticCurveTo(-6, -4, 0, 0); cx.quadraticCurveTo(6, -4, 14, -f); cx.stroke();
@@ -2590,6 +2834,21 @@
           cx.fillStyle = Math.sin(o.t * 6) > 0 ? '#ff1744' : '#333'; cx.fillRect(-28, -15, 3, 3);
           break;
         case 'balloon':
+          if (o.spooky) { // a ghost: wobbly sheet, hollow eyes, an "oooh" mouth
+            cx.translate(0, Math.sin(o.t * 2.5) * 4);
+            cx.globalAlpha = 0.85;
+            const gg = cx.createLinearGradient(0, -22, 0, 18);
+            gg.addColorStop(0, '#ffffff'); gg.addColorStop(1, '#cfd8ff');
+            cx.fillStyle = gg;
+            cx.beginPath(); cx.moveTo(-14, 14); cx.lineTo(-14, -6); cx.arc(0, -6, 14, Math.PI, 0); cx.lineTo(14, 14);
+            for (let k = 0; k < 4; k++) cx.quadraticCurveTo(10.5 - k * 7, 20 + Math.sin(o.t * 6 + k) * 3, 7 - k * 7, 14);
+            cx.closePath(); cx.fill();
+            cx.globalAlpha = 1;
+            cx.fillStyle = '#1c1028';
+            cx.beginPath(); cx.ellipse(-5, -7, 2.6, 3.6, 0, 0, 7); cx.ellipse(5, -7, 2.6, 3.6, 0, 0, 7); cx.fill();
+            cx.beginPath(); cx.ellipse(0, 2, 2.6, 3.4 + Math.sin(o.t * 3) * 0.8, 0, 0, 7); cx.fill();
+            break;
+          }
           cx.strokeStyle = '#ccc'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(0, 11); cx.lineTo(0, 24); cx.stroke();
           { const bg = cx.createRadialGradient(-5, -12, 2, 0, -6, 18); bg.addColorStop(0, '#ff9aae'); bg.addColorStop(1, '#c9183f'); cx.fillStyle = bg; }
           cx.beginPath(); cx.ellipse(0, -6, 14, 17, 0, 0, 7); cx.fill();
@@ -2852,7 +3111,7 @@
         loopSet('thrust', turbo ? 0.9 : 0.55, turbo || flm === 'blue' ? 1400 : 600);
         // exhaust goes out of the nozzle, opposite to the thrust (screen coords)
         const ex = -Math.sin(rocket.ang), ey = Math.cos(rocket.ang);
-        const cols = save.skin === 'rainbow' ? RAINBOW : EXHAUST[flm] || EXHAUST.fire;
+        const cols = save.skin === 'rainbow' ? RAINBOW : save.skin === 'goldtrail' ? GOLDTRAIL : EXHAUST[flm] || EXHAUST.fire;
         for (let i = 0; i < (turbo ? 4 : 2); i++) {
           const v = rand(60, 120);
           part(rocket.x, rocket.y, {
@@ -3106,6 +3365,9 @@
   $('btn-res-buy').addEventListener('click', buyFromResult);
   $('btn-ad-double').addEventListener('click', adDouble);
   $('btn-ad-boost').addEventListener('click', adBoost);
+  $('btn-notify').addEventListener('click', () => { audioInit(); setNotify(!save.notify); });
+  $('pass').addEventListener('click', openPass);
+  $('btn-close-pass').addEventListener('click', () => show('passview', false));
   $('btn-privacy').addEventListener('click', () => { try { window.AndroidBridge.showPrivacyOptions(); } catch (e) { /* browser */ } });
   $('btn-evolve').addEventListener('click', evolve);
   $('btn-sound').addEventListener('click', cycleSound);
@@ -3130,6 +3392,7 @@
     if (!$('modal').classList.contains('hidden')) { $('modal-no').click(); return 'ok'; }
     if (!$('reward').classList.contains('hidden')) { $('reward-ok').click(); return 'ok'; }
     if (!$('collection').classList.contains('hidden')) { show('collection', false); return 'ok'; }
+    if (!$('passview').classList.contains('hidden')) { show('passview', false); return 'ok'; }
     if (state === 'shop') return 'exit';
     if (state === 'ignite' && !ign) { goShop(); return 'ok'; }
     if (state === 'result') { goShop(); return 'ok'; }
@@ -3150,7 +3413,7 @@
   // test hook
   window.__vp = {
     get state() { return state; }, get rocket() { return rocket; }, get save() { return save; },
-    get combo() { return combo; }, get flight() { return fl; }, get music() { return music.on; }, closeSplash, get bonusT() { return bonusT; }, get weather() { return weather; },
+    get combo() { return combo; }, get flight() { return fl; }, get event() { return EV; }, get music() { return music.on; }, closeSplash, get bonusT() { return bonusT; }, get weather() { return weather; },
     // for the store-art script: draw any rocket on any canvas, and jump to a height
     paint(c, x, y, o) { drawRocket(c, x, y, o.ang || 0, L.EVOS[o.evo || 0], o.scale || 1, o.flame || 0, L.TYPES[o.type || 0], 1); },
     warp(y) {
@@ -3165,6 +3428,7 @@
   };
 
   setLang('en');
+  if (EV) $('splash-event').textContent = T('splashEvent')(EV.icon, EV.name, EV.item);
   setSound(save.sound, save.music);
   goShop();
   requestAnimationFrame(frame);

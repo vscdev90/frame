@@ -290,3 +290,36 @@ button.again { align-self: center; margin-top: 10px; font-size: 1.5rem; padding:
 .reward-days div b { display: block; font-size: 1.1rem; }
 .reward-days div.done { background: rgba(183,255,138,.25); }
 .reward-days div.today { background: linear-gradient(#ffd23f, #ff8c1a); color: #2b1300; transform: scale(1.12); }
+
+/* seasonal event banner */
+.event, .pass { margin: 10px 0 4px; padding: 10px 12px; border-radius: 16px; }
+.event { background: linear-gradient(135deg, rgba(255,120,0,.4), rgba(110,30,160,.45)); border: 2px solid rgba(255,160,60,.7); box-shadow: 0 0 18px rgba(255,140,26,.25); }
+.ev-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ev-top b { font-family: 'Lilita One', Fredoka, sans-serif; font-weight: 400; font-size: 1.15rem; letter-spacing: .5px; }
+.ev-top span { font-size: .8rem; font-weight: 800; opacity: .85; white-space: nowrap; }
+.event .ev-top span { color: #ffd23f; }
+.ev-text { font-weight: 700; font-size: .9rem; margin: 4px 0 6px; }
+.event .bar, .pass .bar { height: 8px; border-radius: 4px; background: rgba(0,0,0,.3); overflow: hidden; }
+.event .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff8c1a, #ffd23f); transition: width .6s; }
+
+/* Rocket Pass card and tier list */
+.pass { background: linear-gradient(135deg, rgba(58,134,255,.35), rgba(255,210,63,.18)); border: 2px solid rgba(128,216,255,.55); cursor: pointer; }
+.pass:active { transform: scale(.98); }
+.ps-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 6px; font-size: .85rem; }
+.ps-row b { color: #80d8ff; white-space: nowrap; }
+.ps-row span:not(.ps-more) { flex: 1; min-width: 0; font-weight: 700; }
+.ps-more { font-size: 1.4rem; line-height: 1; opacity: .7; }
+.pass .bar i { display: block; height: 100%; background: linear-gradient(90deg, #4cc9f0, #ffd23f); transition: width .6s; }
+.tiers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding-bottom: 20px; }
+.tier { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; border-radius: 12px; background: rgba(255,255,255,.07); border: 2px solid transparent; }
+.tier b { font-size: .7rem; opacity: .7; }
+.tier span { font-size: 1.4rem; }
+.tier small { font-size: .62rem; font-weight: 700; text-align: center; overflow: hidden; text-overflow: ellipsis; max-width: 100%; white-space: nowrap; }
+.tier.big { background: rgba(255,210,63,.15); }
+.tier.done { opacity: .55; }
+.tier.done::after { content: '✓'; position: absolute; top: 2px; right: 6px; color: #b7ff8a; font-weight: 900; }
+.tier.now { border-color: #ffd23f; box-shadow: 0 0 12px rgba(255,210,63,.5); }
+
+.splash-event { margin-top: 14px; font-family: 'Lilita One', Fredoka, sans-serif; font-size: 1.2rem; color: #ffb347; text-shadow: 0 0 12px rgba(255,140,26,.8); }
+.splash-event:empty { display: none; }
+#passview { background: linear-gradient(#141a3d, #1e1032); }

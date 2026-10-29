@@ -82,4 +82,80 @@ assert.equal(M.mysteryBox(s6, () => 0.3).kind, 'turbo');
 assert.equal(s6.bonusTurbo, 3);
 const box = M.mysteryBox(s6, () => 0.9);
 assert.ok(box.kind === 'coins' && s6.coins === box.coins);
+// a mystery box never hands out a skin that belongs to an event or the pass
+const s6b = Object.assign(L.freshSave(), { skins: M.SKINS.filter((k) => k.cost).map((k) => k.id) });
+assert.notEqual(M.mysteryBox(s6b, () => 0.1).kind, 'skin');
+
+// Halloween: only around the end of October, with days left
+assert.equal(M.activeEvent(new Date(2026, 9, 24, 23)), null);
+const hw = M.activeEvent(new Date(2026, 9, 29, 12));
+assert.equal(hw.id, 'halloween'); assert.equal(hw.key, 'halloween-2026'); assert.equal(hw.goal, 120);
+assert.equal(hw.daysLeft, 5);
+assert.equal(M.activeEvent(new Date(2026, 10, 2, 22)).daysLeft, 1, 'the last day');
+assert.equal(M.activeEvent(new Date(2026, 10, 3, 0, 1)), null);
+// sweets pay a box at 40 and 80 and the witch hat at 120; a new year starts over
+const s7 = Object.assign(L.freshSave(), { record: 500 });
+assert.deepEqual(M.addEventItems(s7, hw, 39, () => 0.9), []);
+assert.equal(M.addEventItems(s7, hw, 2, () => 0.9).length, 1);
+assert.equal(M.addEventItems(s7, hw, 80, () => 0.9).length, 2, 'box at 80 and the hat at 120 at once');
+assert.ok(s7.skins.includes('witch'));
+assert.deepEqual(M.addEventItems(s7, hw, 30, () => 0.9), [], 'nothing more after the last prize');
+const hw27 = M.activeEvent(new Date(2027, 9, 30));
+M.addEventItems(s7, hw27, 120, () => 0.9);
+assert.equal(s7.event.key, 'halloween-2027');
+assert.equal(s7.skins.filter((k) => k === 'witch').length, 1, 'already had the hat: coins instead');
+
+// Rocket Pass: XP per flight, 30 tiers that pay out, a new pass every month
+assert.equal(M.flightXp({ perfect: false, near: 0, bestCombo: 0 }), 10);
+assert.equal(M.flightXp({ perfect: true, near: 9, bestCombo: 100, record: true }), 10 + 10 + 25 + 15 + 20);
+const s8 = Object.assign(L.freshSave(), { record: 1000, coins: 0 });
+const oct = new Date(2026, 9, 29);
+assert.deepEqual(M.addPassXp(s8, 99, oct), []);
+const t1 = M.addPassXp(s8, 1, oct);
+assert.equal(t1.length, 1); assert.equal(t1[0].tier, 1); assert.equal(t1[0].kind, 'coins'); assert.equal(s8.coins, t1[0].coins);
+const lots = M.addPassXp(s8, 10000, oct, () => 0.9);
+assert.equal(s8.pass.tier, 30); assert.equal(lots.length, 29);
+assert.ok(s8.skins.includes('goggles') && s8.skins.includes('goldtrail'), 'pass skins at 15 and 30');
+assert.deepEqual(M.addPassXp(s8, 500, oct), [], 'a full pass takes no more');
+let total = 0; for (let t = 0; t < 30; t++) total += M.passNeed(t);
+assert.equal(total, 4500);
+assert.equal(M.passDaysLeft(new Date(2026, 9, 31, 12)), 1);
+M.addPassXp(s8, 10, new Date(2026, 10, 1));
+assert.equal(s8.pass.season, '2026-11'); assert.equal(s8.pass.tier, 0); assert.equal(s8.pass.xp, 10);
+// a second pass: the skins are owned, so those tiers pay coins
+const c8 = s8.coins;
+M.addPassXp(s8, 10000, new Date(2026, 10, 2), () => 0.9);
+assert.ok(s8.coins > c8); assert.equal(s8.skins.filter((k) => k === 'goggles').length, 1);
+
+// what survives a new universe now includes the streak, the pass and the event
+const s9 = Object.assign(L.freshSave(), { ends: 1, login: { day: 'x', streak: 4 }, pass: { season: 'y', xp: 1, tier: 3 }, notify: true });
+const n9 = M.prestige(s9);
+assert.equal(n9.login.streak, 4); assert.equal(n9.pass.tier, 3); assert.equal(n9.notify, true);
+
+// reminders: off unless switched on; one a day at most, in the daytime, three at most
+const s10 = Object.assign(L.freshSave(), { flights: 20, record: 900, best: 900 });
+const noon = new Date(2026, 9, 29, 12, 0).getTime();
+assert.deepEqual(M.planReminders(s10, noon, hw), []);
+s10.notify = true;
+s10.login = { day: M.dayKey(new Date(noon)), streak: 3 };
+M.passState(s10, new Date(noon));
+const plan = M.planReminders(s10, noon, hw);
+assert.ok(plan.length >= 1 && plan.length <= 3);
+const kinds = plan.map((r) => r.kind);
+assert.equal(plan[0].kind, 'fans', 'noon + 8 h is 20:00 today');
+assert.equal(new Date(plan[0].at).getHours(), 20);
+assert.ok(kinds.includes('streak'), 'tomorrow evening for the streak');
+assert.equal(plan.find((r) => r.kind === 'streak').day, 4);
+const dayset = new Set(plan.map((r) => M.dayKey(new Date(r.at))));
+assert.equal(dayset.size, plan.length, 'never two on one day');
+for (const r of plan) {
+  const d = new Date(r.at), mins = d.getHours() * 60 + d.getMinutes();
+  assert.ok(mins >= 600 && mins <= 1230, 'only in the daytime: ' + d);
+  assert.ok(r.at > noon);
+}
+// late in the evening: the fans' reminder moves to the next morning
+const late = new Date(2026, 9, 29, 22, 0).getTime();
+const fans = M.planReminders(Object.assign({}, s10, { login: null, pass: null }), late, null).find((r) => r.kind === 'fans');
+assert.equal(new Date(fans.at).getHours(), 10);
+assert.equal(new Date(fans.at).getDate(), 30);
 console.log('meta ok');

@@ -78,6 +78,16 @@ const after = await page.evaluate(() => window.__vp.save);
 const total = Object.values(after.lv).reduce((a, b) => a + b, 0);
 if (total !== 1) throw new Error('upgrade not applied');
 
+// the Rocket Pass fills up with every flight; tapping it shows all 30 tiers
+const pass0 = await page.evaluate(() => window.__vp.save.pass);
+if (!pass0 || !(pass0.xp > 0 || pass0.tier > 0)) throw new Error('flights gave no pass XP: ' + JSON.stringify(pass0));
+if (!(await page.textContent('#pass')).includes('Tier')) throw new Error('pass card missing');
+await page.click('#pass');
+if (!(await page.isVisible('#passview')) || (await page.$$('#pass-tiers .tier')).length !== 30) throw new Error('pass view should list 30 tiers');
+if (!(await page.$('#pass-tiers .tier.now'))) throw new Error('current tier not marked');
+await shot('17-pass');
+await page.click('#btn-close-pass');
+
 // shop shows every launch site and rocket type
 if ((await page.$$('#sites .chip')).length !== 5) throw new Error('expected 5 launch sites');
 const nTypes = (await page.$$('[id^=types-] .chip')).length;
@@ -271,8 +281,82 @@ await page.click('#btn-reset');
 await page.click('#modal-no');
 if ((await page.evaluate(() => window.__vp.save.prestige)) !== 1) throw new Error('cancel should keep the save');
 await shot('16-universe');
-// today's streak popped up after a reload
+// today's streak popped up after a reload, and the pass went up a tier or more
 if (!popups.some((t) => t.includes('Day 1 streak'))) throw new Error('no daily streak popup: ' + popups.join(', '));
+if (!((await page.evaluate(() => window.__vp.save.pass.tier)) >= 1)) throw new Error('all those flights and missions did not reach pass tier 1');
+
+// Halloween (the clock is set to the 30th of October): a banner, sweets, bats, and a witch hat at 120 sweets
+{
+  const ev = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  ev.on('pageerror', (e) => errors.push('halloween pageerror: ' + e.message));
+  ev.on('dialog', (d) => { errors.push('native dialog used: ' + d.message()); d.dismiss(); });
+  await ev.clock.setFixedTime(new Date(2026, 9, 30, 12, 0));
+  await ev.goto(BASE + '/index.html');
+  if (!(await ev.textContent('#splash-event')).includes('Halloween')) throw new Error('splash does not mention Halloween');
+  await ev.click('#splash');
+  await ev.waitForTimeout(700);
+  const banner = await ev.textContent('#event');
+  if (!(await ev.isVisible('#event')) || !banner.includes('4 days left') || !banner.includes('0/40')) throw new Error('Halloween banner wrong: ' + banner);
+  if (SHOTS) await ev.screenshot({ path: SHOTS + '/30-halloween-shop.png' });
+  await ev.evaluate(() => { Object.assign(window.__vp.save.event, { n: 119, paid: 80 }); });
+  await ev.click('#btn-launch'); await ev.click('#btn-light'); await ev.waitForTimeout(500);
+  await ev.mouse.click(195, 400);
+  await ev.waitForTimeout(300);
+  await ev.evaluate(() => window.__vp.spawnAhead('candy', { r: 13 }));
+  await ev.waitForTimeout(400);
+  if (!((await ev.evaluate(() => window.__vp.flight.candy)) >= 1)) throw new Error('sweet not picked up');
+  await ev.evaluate(() => { window.__vp.spawnAhead('bird', { r: 17, dir: 1, spooky: true }, 150, 90); window.__vp.spawnAhead('balloon', { r: 17, spooky: true }, 250, -90); });
+  await ev.waitForTimeout(250);
+  if (SHOTS) await ev.screenshot({ path: SHOTS + '/31-halloween-flight.png' });
+  for (let k = 0; k < 300 && (await ev.evaluate(() => window.__vp.state)) !== 'result'; k++) {
+    if ((await ev.evaluate(() => window.__vp.state)) === 'boom') await ev.mouse.click(195, 400);
+    await ev.waitForTimeout(150);
+  }
+  if (!(await ev.textContent('#res-pass')).includes('🍬 +')) throw new Error('sweets missing on the result screen');
+  await ev.waitForSelector('#reward:not(.hidden)', { timeout: 3000 });
+  if (!(await ev.textContent('#reward-title')).includes('Halloween prize') || !(await ev.textContent('#reward-text')).includes('Witch hat')) throw new Error('no witch hat at 120 sweets');
+  if (SHOTS) await ev.screenshot({ path: SHOTS + '/32-witch-hat.png' });
+  await ev.click('#reward-ok');
+  if (!(await ev.evaluate(() => window.__vp.save.skins.includes('witch')))) throw new Error('witch hat not given');
+  await ev.click('#btn-continue');
+  if (!(await ev.textContent('#event')).includes('All prizes collected')) throw new Error('banner should say all prizes are collected');
+  await ev.click('#btn-collection');
+  await ev.click('#skins .chip:has-text("Witch hat")');
+  if ((await ev.evaluate(() => window.__vp.save.skin)) !== 'witch') throw new Error('could not wear the witch hat');
+  await ev.click('#btn-close-collection');
+  if (SHOTS) await ev.screenshot({ path: SHOTS + '/33-witch-on.png' });
+  await ev.close();
+}
+
+// after the event (10 November): no banner and no sweets; a pass tier pays out with a popup
+{
+  const off = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  off.on('pageerror', (e) => errors.push('november pageerror: ' + e.message));
+  await off.clock.setFixedTime(new Date(2026, 10, 10, 12, 0));
+  await off.addInitScript(() => {
+    if (!localStorage.getItem('vuurpijl-save-v1')) localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ pass: { season: '2026-11', xp: 95, tier: 0 } }));
+  });
+  await off.goto(BASE + '/index.html');
+  if ((await off.textContent('#splash-event')).trim()) throw new Error('no event in November');
+  await off.click('#splash');
+  await off.waitForTimeout(700);
+  if ((await off.isVisible('#event')) || (await off.evaluate(() => window.__vp.event)) !== null) throw new Error('Halloween should be over');
+  if (!(await off.textContent('#pass-days')).includes('21 days left')) throw new Error('pass days wrong: ' + (await off.textContent('#pass-days')));
+  await off.click('#btn-launch'); await off.click('#btn-light'); await off.waitForTimeout(500);
+  await off.mouse.click(195, 400);
+  for (let k = 0; k < 300 && (await off.evaluate(() => window.__vp.state)) !== 'result'; k++) {
+    if ((await off.evaluate(() => window.__vp.state)) === 'boom') await off.mouse.click(195, 400);
+    await off.waitForTimeout(150);
+  }
+  await off.waitForSelector('#reward:not(.hidden)', { timeout: 3000 });
+  if ((await off.textContent('#reward-title')) !== 'Pass tier 1!') throw new Error('no pass tier popup: ' + (await off.textContent('#reward-title')));
+  await off.click('#reward-ok');
+  await off.click('#btn-continue');
+  if (!(await off.textContent('#pass-tier')).includes('Tier 1/30')) throw new Error('pass card not updated');
+  await off.click('#pass');
+  if ((await off.$$('#pass-tiers .tier.done')).length !== 1) throw new Error('tier 1 should be done');
+  await off.close();
+}
 
 // coming back after three hours, on day 7 of a streak: coins from your fans, then the big daily prize
 {
@@ -340,6 +424,9 @@ if (!popups.some((t) => t.includes('Day 1 streak'))) throw new Error('no daily s
       version: () => '1.0.99', adReady: () => true,
       showRewarded: (tag) => { window.__ads++; setTimeout(() => window.vpAdDone(tag, true), 50); },
       privacyOptionsRequired: () => true, showPrivacyOptions: () => {}, vibrate: () => {},
+      notifyStatus: () => 'ask', openNotifySettings: () => {},
+      requestNotify: () => { window.__asked = (window.__asked || 0) + 1; setTimeout(() => window.vpNotifyDone(true), 30); },
+      scheduleNotifications: (json) => { window.__sched = JSON.parse(json); },
     };
     // an old save from when there was a cheat mode
     localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ coins: 5000, record: 300, flights: 5, cheats: true, god: true, infFuel: true }));
@@ -357,6 +444,22 @@ if (!popups.some((t) => t.includes('Day 1 streak'))) throw new Error('no daily s
   await app.waitForTimeout(300);
   if (!((await app.evaluate(() => window.__vp.save.coins)) > r0)) throw new Error('reward video paid nothing');
   if (await app.isVisible('#reward')) throw new Error('reward popup did not close after the video');
+  // then, once, the game asks about reminders in its own words; yes asks Android for the permission
+  await app.waitForSelector('#modal:not(.hidden)', { timeout: 2000 });
+  if (!(await app.textContent('#modal-text')).includes('heads-up')) throw new Error('reminder question missing');
+  if (SHOTS) await app.screenshot({ path: SHOTS + '/28-notify-ask.png' });
+  await app.click('#modal-yes');
+  await app.waitForTimeout(200);
+  if ((await app.evaluate(() => window.__asked)) !== 1 || (await app.evaluate(() => window.__vp.save.notify)) !== true) throw new Error('permission not asked');
+  const plan = await app.evaluate(() => window.__sched);
+  if (!Array.isArray(plan) || plan.length < 1 || plan.length > 3) throw new Error('no reminder plan: ' + JSON.stringify(plan));
+  const days = new Set(plan.map((r) => new Date(r.at).toDateString()));
+  if (days.size !== plan.length) throw new Error('two reminders on one day');
+  for (const r of plan) {
+    const h = new Date(r.at).getHours();
+    if (!r.title || !r.text || h < 10 || h > 20 || r.at < Date.now()) throw new Error('bad reminder ' + JSON.stringify(r));
+  }
+  if ((await app.evaluate(() => window.vpPause())) !== 'ok') throw new Error('pause hook missing');
   await app.addLocatorHandler(app.locator('#reward'), () => dismissRewards(app));
   // free boost: a video gives +2 turbo on the next flight
   await app.waitForTimeout(1200);
@@ -383,6 +486,10 @@ if (!popups.some((t) => t.includes('Day 1 streak'))) throw new Error('no daily s
   await app.click('#btn-continue');
   await app.click('#btn-collection');
   if (!(await app.isVisible('#btn-privacy'))) throw new Error('privacy options button missing');
+  // reminders can be switched off (and the plan is cleared)
+  if (!(await app.textContent('#btn-notify')).includes('ON')) throw new Error('reminder switch missing');
+  await app.click('#btn-notify');
+  if (!(await app.textContent('#btn-notify')).includes('OFF') || (await app.evaluate(() => window.__sched.length)) !== 0) throw new Error('reminders did not switch off');
   if (!(await app.textContent('#col-stats')).includes('v1.0.99')) throw new Error('version missing');
   if ((await app.evaluate(() => window.__ads)) !== 3) throw new Error('expected three videos');
   await app.close();
