@@ -156,7 +156,9 @@ const fresh = async (src) => {
   await setSave(`Object.assign(s, { coins: 2500000, record: 30000, best: 30000, flights: 140, evo: 4, zones: 9, moon: 12,
     types: [...Array(20).keys()], skins: ['none', 'shades', 'party'], achievements: ['first', 'roofs', 'clouds', 'space', 'moon', 'mars', 'combo10', 'boss'],
     visits: { moon: 12, mars: 5, belt: 2 }, counters: { perfects: 30, bossDodges: 3 }, sound: false,
-    lv: { kruit: 14, stuw: 14, aero: 13, lont: 8, stuur: 7, knal: 12, magneet: 6, turbo: 3 } });` + src);
+    lv: { kruit: 14, stuw: 14, aero: 13, lont: 8, stuur: 7, knal: 12, magneet: 6, turbo: 3 } });
+    // today's streak is already collected, so no popup covers the shot
+    const d = new Date(); s.login = { day: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), streak: 3 };` + src);
   await page.reload(); await page.click('#splash'); await page.waitForTimeout(700);
 };
 const launch = async () => {

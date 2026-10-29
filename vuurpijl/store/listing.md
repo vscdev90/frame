@@ -40,7 +40,10 @@ Classic fireworks, Big Bertha with a MEGA bang, a soda bottle with candy, a flyi
 
 🏆 ALWAYS SOMETHING TO DO
 • Daily missions and a bonus chest
-• 18 achievements, skins and a star map
+• A 7-day streak with bigger prizes every day, and a mystery box every 8 flights
+• Your fans collect coins while you're away
+• Close calls, golden coins and PERFECT streaks
+• 20 achievements, skins and a star map
 • Five launch sites: backyard, beach, city, mountain top and launch base
 • A ghost of your best flight to beat
 • Start a new universe for permanent bonus coins

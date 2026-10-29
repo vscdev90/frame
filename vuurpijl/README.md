@@ -27,16 +27,24 @@ Echte merknamen (NASA, F-16, F-35, Mentos, ACME, …) zitten er bewust niet in.
 - 🛡️ Schild, 🧲 magneet en ⏳ slow-mo als power-ups, 💰 gouden wolken met een muntenregen.
 - ⚠️ Bazen: een reuzenmeeuw (450 m), een ruimtewalvis (16.500 m) en een moederschip (23.500 m). Ontwijken levert veel op.
 - 🌧️ Weer per vlucht: regen, wind, sneeuw in de winter en vuurwerk overal op oudjaar (munten ×2).
-- 🏆 Verzameling: 18 prestaties, skins (zonnebril, feesthoed, kerstmuts, propellerpet, regenboogspoor, kroon) en een sterrenkaart.
+- 🏆 Verzameling: 20 prestaties, skins (zonnebril, feesthoed, kerstmuts, propellerpet, regenboogspoor, kroon) en een sterrenkaart.
 - 👻 Een spook van je recordvlucht vliegt mee.
 - 📤 Deel een plaatje van je score.
 - 🌌 Na het zwarte gat: begin een nieuw heelal en verdien voortaan meer munten (prestige).
 
+**Terugkomen loont:**
+- 😎 Close calls: scheer rakelings langs een obstakel voor munten en een hogere combo.
+- ✨ Gouden munten (zeldzaam, ×10) en PERFECT-reeksen: elke PERFECT-start op rij geeft iets meer kracht.
+- 🚀 Na een vlucht: **FLY AGAIN** in één tik, de volgende upgrade direct te koop, en "SO CLOSE!" als je net onder je record bleef.
+- 🌙 Welkom terug: je fans sparen munten terwijl je weg bent (tot 8 uur).
+- 🔥 Dagelijkse reeks van 7 dagen met steeds grotere prijzen, en elke 8e vlucht een 🎁 mystery box.
+- Tijdens de vlucht zie je hoe ver het nog is naar de volgende planeet.
+
 **Show:** opstartscherm met menu-muziek (zelf gesynthetiseerd, geen audiobestanden), een aftelling met stem voor de
 ruimteraket (de spraakfunctie van je telefoon), rook en vuur bij het opstijgen en een pepermuntje dat in de colafles valt.
 
-**Beloningsfilmpjes (alleen in de Android-app):** kijk vrijwillig een filmpje voor 2× munten na een vlucht, of voor
-+2 turbo bij je volgende vlucht (eens per 4 minuten). Via Google AdMob, met het verplichte toestemmingsformulier in de EU.
+**Beloningsfilmpjes (alleen in de Android-app):** kijk vrijwillig een filmpje voor 2× munten na een vlucht, voor
++2 turbo bij je volgende vlucht (eens per 4 minuten), of om een dagprijs of welkom-terug-beloning te verdubbelen (verdrievoudigen). Via Google AdMob, met het verplichte toestemmingsformulier in de EU.
 
 **Sturen:** houd links of rechts van het scherm vast, of zet 📱 aan om te sturen door je telefoon te kantelen.
 Tik tijdens de knal om meteen naar de uitslag te gaan.

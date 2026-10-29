@@ -17,6 +17,7 @@
       <div class="pill" id="hud-coins">🪙 0</div>
     </div>
     <div class="fuelbar"><div id="hud-fuel"></div></div>
+    <div id="hud-goal"></div>
     <div class="hud-row small">
       <div id="hud-wx"></div>
       <div id="hud-power"></div>
@@ -103,11 +104,19 @@
     <div class="res-total"><span data-i18n="resTotal">Total</span><b id="res-total"></b></div>
     <div class="res-badges" id="res-badges"></div>
     <div class="res-record hidden" id="res-record" data-i18n="newRecord">🏆 NEW RECORD!</div>
+    <div class="res-close hidden" id="res-close"></div>
+    <!-- the next thing to buy, right here, so one more flight is always one tap away -->
+    <div class="res-next" id="res-next">
+      <div class="rn-text" id="res-next-text"></div>
+      <div class="bar"><i id="res-next-bar"></i></div>
+      <button id="btn-res-buy" class="buy hidden"></button>
+    </div>
     <div class="res-buttons">
       <button id="btn-share" class="ghost wide" data-i18n="share">📤 SHARE</button>
       <button id="btn-ad-double" class="buy hidden" data-i18n="adDouble">📺 2× COINS</button>
-      <button id="btn-continue" class="big" data-i18n="toShed">🛠️ TO THE SHED</button>
+      <button id="btn-continue" class="ghost wide" data-i18n="toShed">🛠️ SHED</button>
     </div>
+    <button id="btn-again" class="big again" data-i18n="again">🚀 FLY AGAIN</button>
   </div>
 
   <!-- collection: skins, achievements, star map -->
@@ -143,6 +152,20 @@
       <div class="modal-buttons">
         <button id="modal-no" class="ghost wide" data-i18n="no">Cancel</button>
         <button id="modal-yes" class="big" data-i18n="yes">YES</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- rewards: welcome back, daily streak, mystery boxes -->
+  <div id="reward" class="hidden">
+    <div class="modal-box reward-box">
+      <div class="reward-icon" id="reward-icon">🎁</div>
+      <div class="reward-title" id="reward-title"></div>
+      <div class="reward-days" id="reward-days"></div>
+      <div class="reward-text" id="reward-text"></div>
+      <div class="modal-buttons">
+        <button id="reward-ad" class="buy hidden"></button>
+        <button id="reward-ok" class="big" data-i18n="collect">COLLECT</button>
       </div>
     </div>
   </div>

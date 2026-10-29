@@ -116,6 +116,7 @@ button.buy.max { background: rgba(255,210,63,.25); color: #ffd23f; }
 .res-line, .res-total { display: flex; justify-content: space-between; font-size: 1.15rem; max-width: 380px; width: 100%; margin: 0 auto; }
 .res-total { font-size: 1.5rem; font-weight: 900; border-top: 2px solid rgba(255,255,255,.2); padding-top: 10px; color: #ffd23f; }
 .res-record { text-align: center; font-weight: 900; font-size: 1.3rem; color: #ff4d6d; animation: pulse .5s infinite alternate; }
+.res-close { text-align: center; font-weight: 900; font-size: 1.1rem; color: #80ffdb; }
 #result .big { align-self: center; margin-top: 14px; }
 
 #toast {
@@ -258,3 +259,34 @@ button.buy:disabled { background: rgba(255,255,255,.12); border-color: transpare
 .adcard { background: linear-gradient(135deg, rgba(76,201,240,.18), rgba(199,125,255,.18)); }
 #btn-ad-double { padding: 12px 14px; font-size: 1rem; }
 button.privacy { display: block; margin: 18px auto 0; font-size: .85rem; height: 40px; opacity: .8; }
+
+/* in flight: how far to the next planet */
+#hud-goal { margin-top: 6px; text-align: right; font-family: 'Lilita One', Fredoka, sans-serif; font-size: .95rem; text-shadow: 0 2px 6px #000; opacity: .9; }
+
+/* result: next goal and fly again */
+.res-next { max-width: 380px; width: 100%; margin: 6px auto 0; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1); }
+.res-next .rn-text { font-weight: 700; font-size: .95rem; margin-bottom: 6px; }
+.res-next .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.15); overflow: hidden; }
+.res-next .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd23f, #b7ff8a); transition: width .6s; }
+.res-next button { margin-top: 8px; width: 100%; }
+button.again { align-self: center; margin-top: 10px; font-size: 1.5rem; padding: 18px 40px; animation: pulse .9s infinite alternate; }
+
+/* reward popups */
+#reward { position: fixed; inset: 0; z-index: 31; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.65); }
+.reward-box { animation: popin .35s ease-out; }
+@keyframes popin { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.reward-icon { font-size: 4rem; animation: lift 1.2s ease-in-out infinite alternate; }
+/* a mystery box rattles first, then shows what is inside */
+.reward-box.box .reward-icon { animation: rattle .12s 6 alternate, burst .3s .75s ease-out, lift 1.2s 1.05s ease-in-out infinite alternate; }
+.reward-box.box .reward-text, .reward-box.box .modal-buttons { animation: reveal .3s .8s both; }
+@keyframes rattle { from { transform: rotate(-14deg) scale(.95); } to { transform: rotate(14deg) scale(1.05); } }
+@keyframes burst { 50% { transform: scale(1.6); } }
+@keyframes reveal { from { opacity: 0; transform: scale(.5); } to { opacity: 1; transform: scale(1); } }
+.reward-title { font-family: 'Lilita One', Fredoka, sans-serif; font-size: 1.8rem; color: #ffd23f; text-shadow: 0 3px 0 #b34d00; margin: 4px 0 10px; }
+.reward-text { font-weight: 700; font-size: 1.1rem; margin-bottom: 16px; }
+.reward-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 12px; }
+.reward-days:empty { display: none; }
+.reward-days div { border-radius: 8px; padding: 4px 0; font-size: .7rem; background: rgba(255,255,255,.08); }
+.reward-days div b { display: block; font-size: 1.1rem; }
+.reward-days div.done { background: rgba(183,255,138,.25); }
+.reward-days div.today { background: linear-gradient(#ffd23f, #ff8c1a); color: #2b1300; transform: scale(1.12); }

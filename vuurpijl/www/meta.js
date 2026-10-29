@@ -52,6 +52,8 @@
     { id: 'collector', icon: '🧰', name: 'Collector',        desc: 'Own 10 things to launch',             reward: 10000,  test: (s) => s.types.length >= 10 },
     { id: 'all',       icon: '🏆', name: 'Got Them All',     desc: 'Own all 20 things to launch',         reward: 250000, test: (s) => s.types.length >= L.TYPES.length },
     { id: 'universe',  icon: '✨', name: 'New Universe',     desc: 'Start a new universe',                reward: 0,      test: (s) => (s.prestige || 0) > 0 },
+    { id: 'daredevil', icon: '😎', name: 'Daredevil',        desc: '5 close calls in one flight',         reward: 2500,   test: (s, f) => f && f.near >= 5 },
+    { id: 'streak7',   icon: '📆', name: 'Regular',          desc: 'Play 7 days in a row',                reward: 5000,   test: (s) => s.login && s.login.streak >= 7 },
   ];
 
   // Returns the achievements newly earned (and marks them in the save).
@@ -89,6 +91,7 @@
     { kind: 'nohit',   mode: 'max', target: (s) => nice(Math.max(40, s.record * 0.4)) },
     { kind: 'power',   mode: 'sum', target: () => 3 },
     { kind: 'vehicle', mode: 'max', target: (s) => nice(Math.max(40, s.record * 0.4)) },
+    { kind: 'near',    mode: 'sum', target: () => 5 },
   ];
 
   // Today's three missions; rebuilt when the day changes.
@@ -118,12 +121,60 @@
     for (const m of d.missions) {
       const v = {
         height: f.maxY, coins: f.coins, combo: f.bestCombo, flights: 1, perfect: f.perfect ? 1 : 0,
-        nohit: f.hits === 0 ? f.maxY : 0, power: f.powerups, vehicle: f.typeIdx === m.type ? f.maxY : 0,
+        nohit: f.hits === 0 ? f.maxY : 0, power: f.powerups, vehicle: f.typeIdx === m.type ? f.maxY : 0, near: f.near || 0,
       }[m.kind] || 0;
       m.progress = m.mode === 'sum' ? m.progress + v : Math.max(m.progress, v);
     }
   }
   function missionDone(m) { return m.progress >= m.target; }
+
+  // ---------- coming back: a daily streak, coins earned while away, mystery boxes ----------
+  // The base of all these rewards grows with your record, so they stay worth it.
+  function rewardBase(save) { return nice(80 + (save.record || 0) * 1.2) * prestigeMult(save); }
+
+  // Seven days, then it starts over; miss a day and it restarts at day 1.
+  const LOGIN = [
+    { kind: 'coins', mult: 1 }, { kind: 'coins', mult: 2 }, { kind: 'turbo', n: 2 }, { kind: 'coins', mult: 3 },
+    { kind: 'box' }, { kind: 'coins', mult: 5 }, { kind: 'coins', mult: 10 },
+  ];
+  // Returns today's reward the first time it is asked each day (already paid out), else null.
+  function checkLogin(save, date, rnd) {
+    const d = date || new Date(), key = dayKey(d);
+    const lg = save.login || { day: null, streak: 0 };
+    if (lg.day === key) return null;
+    const y = new Date(d); y.setDate(y.getDate() - 1);
+    const streak = lg.day === dayKey(y) ? (lg.streak % 7) + 1 : 1;
+    save.login = { day: key, streak };
+    const r = Object.assign({ streak }, LOGIN[streak - 1]);
+    if (r.kind === 'coins') { r.coins = rewardBase(save) * r.mult; save.coins += r.coins; }
+    if (r.kind === 'turbo') save.bonusTurbo = (save.bonusTurbo || 0) + r.n;
+    if (r.kind === 'box') r.box = mysteryBox(save, rnd || Math.random);
+    return r;
+  }
+
+  // Coins "your fans collected" while the game was closed: up to 8 hours.
+  function offlineCoins(save, now) {
+    if (!save.lastSeen || !save.flights) return { hours: 0, coins: 0 };
+    const hours = Math.min(8, (now - save.lastSeen) / 3600000);
+    if (hours < 0.25) return { hours: 0, coins: 0 };
+    return { hours, coins: Math.round(nice(10 + (save.best || save.record || 0) * 0.2) * prestigeMult(save) * hours) };
+  }
+
+  // A surprise: sometimes a skin, sometimes turbo, mostly a pile of coins.
+  function mysteryBox(save, rnd) {
+    rnd = rnd || Math.random;
+    const r = rnd();
+    const skins = SKINS.filter((k) => k.cost && !k.ach && !save.skins.includes(k.id));
+    if (r < 0.2 && skins.length) {
+      const k = skins[Math.floor(rnd() * skins.length)];
+      save.skins.push(k.id);
+      return { kind: 'skin', skin: k };
+    }
+    if (r < 0.45) { save.bonusTurbo = (save.bonusTurbo || 0) + 3; return { kind: 'turbo', n: 3 }; }
+    const coins = rewardBase(save) * (2 + Math.floor(rnd() * 4));
+    save.coins += coins;
+    return { kind: 'coins', coins };
+  }
 
   // ---------- weather ----------
   // Picked per flight. Rain and snow add drag low down, wind pushes you
@@ -155,6 +206,7 @@
   const api = {
     prestigeMult, canPrestige, prestige, SKINS, ACHIEVEMENTS, checkAchievements,
     dayKey, dailyMissions, trackMissions, missionDone, WEATHER, rollWeather, BOSSES, nice,
+    LOGIN, checkLogin, offlineCoins, mysteryBox, rewardBase,
   };
   root.VPMeta = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

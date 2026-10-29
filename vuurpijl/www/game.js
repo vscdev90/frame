@@ -37,7 +37,9 @@
   } catch (e) { /* private mode: play without saving */ }
   // older versions had a cheat mode; drop whatever it left in the save
   delete save.cheats; delete save.god; delete save.infFuel;
-  function store() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+  // what you earned while away is worked out once, before the first save stamps a new time
+  const awayAtStart = M.offlineCoins(save, Date.now());
+  function store() { save.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
 
   // ---------- haptics ----------
   function vib(ms) {
@@ -254,9 +256,42 @@
       for (let i = 0; i < n; i++) burst(0.05, 0.25, 4000, 2000, 'highpass', 0.35 + Math.random() * 1.6);
     },
     plof() { burst(0.4, 0.5, 600, 100); tone(120, 0.3, 'sine', 0.3, 50); },
-    fart() { tone(55 + Math.random() * 35, 0.2, 'sawtooth', 0.2, 35); burst(0.2, 0.15, 250, 80); },
-    moo() { tone(160, 0.8, 'sawtooth', 0.14, 110); tone(80, 0.8, 'sawtooth', 0.08, 70); },
-    oink() { tone(520, 0.12, 'square', 0.1, 300); tone(470, 0.12, 'square', 0.1, 280, 0.16); },
+    // a fart: a low buzzy tone, fluttered by a fast square wave, through a muffled filter
+    fart() {
+      if (!A.ctx) return;
+      const t = A.ctx.currentTime, d = 0.16 + Math.random() * 0.3, f = 60 + Math.random() * 55;
+      const o = A.ctx.createOscillator(), lfo = A.ctx.createOscillator(), depth = A.ctx.createGain();
+      const flt = A.ctx.createBiquadFilter(), amp = A.ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * (0.55 + Math.random() * 0.3), t + d);
+      lfo.type = 'square'; lfo.frequency.value = 22 + Math.random() * 25; depth.gain.value = 0.12;
+      flt.type = 'lowpass'; flt.frequency.value = 500 + Math.random() * 400; flt.Q.value = 5;
+      amp.gain.setValueAtTime(0.0001, t); amp.gain.linearRampToValueAtTime(0.22, t + 0.02); amp.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      lfo.connect(depth); depth.connect(amp.gain);
+      o.connect(flt); flt.connect(amp); amp.connect(A.master);
+      o.start(t); lfo.start(t); o.stop(t + d + 0.05); lfo.stop(t + d + 0.05);
+    },
+    // "mmm-OOO": two buzzy voices with a mouth-like filter that opens and closes
+    moo() {
+      if (!A.ctx) return;
+      const t = A.ctx.currentTime, d = 1.1;
+      const flt = A.ctx.createBiquadFilter(), amp = A.ctx.createGain();
+      flt.type = 'bandpass'; flt.Q.value = 2.5;
+      flt.frequency.setValueAtTime(320, t); flt.frequency.linearRampToValueAtTime(700, t + 0.35); flt.frequency.linearRampToValueAtTime(380, t + d);
+      amp.gain.setValueAtTime(0.0001, t); amp.gain.linearRampToValueAtTime(0.5, t + 0.15); amp.gain.setValueAtTime(0.5, t + d - 0.3); amp.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      [[150, 0], [151.5, 1]].forEach(([f, k]) => {
+        const o = A.ctx.createOscillator();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.9, t); o.frequency.linearRampToValueAtTime(f, t + 0.25); o.frequency.linearRampToValueAtTime(f * 0.78, t + d);
+        o.connect(flt); o.start(t + k * 0.01); o.stop(t + d + 0.05);
+      });
+      flt.connect(amp); amp.connect(A.master);
+    },
+    oink() {
+      [0, 0.17].forEach((dl) => {
+        tone(330 - dl * 200, 0.12, 'square', 0.07, 210, dl);
+        burst(0.1, 0.12, 900, 500, 'bandpass', dl);
+      });
+    },
+    bell() { tone(820, 0.7, 'sine', 0.12); tone(1310, 0.4, 'sine', 0.05); tone(545, 0.9, 'triangle', 0.06); },
     flush() { burst(1.4, 0.5, 1400, 200); burst(0.6, 0.25, 3000, 800, 'bandpass', 0.3); },
     fizz() { burst(1.2, 0.45, 3000, 7000, 'highpass'); },
     pop() { tone(1200, 0.08, 'square', 0.25, 300); burst(0.1, 0.4, 4000, 1000, 'highpass'); },
@@ -303,6 +338,7 @@
   let cd = null;   // space-rocket countdown
   // juice: hit-stop and zoom on the final bang, coins flying to the counter,
   // shooting stars, and whether this flight already beat the record
+  let stretch = 0; // squash and stretch of the rocket at liftoff, turbo and staging
   let hitStop = 0, punch = 0, uiCoins = [], shoot = null, shootNext = 4, beatRecord = false, recordAtLaunch = 0;
   const snow = Array.from({ length: 70 }, (_, i) => ({ x: hash(i + 2000), y: hash(i + 2100), s: 1 + hash(i + 2200) * 2.5 }));
 
@@ -472,6 +508,8 @@
     if (roll < 0.58 || y < 25) {
       if (Math.random() < 0.3) {
         for (let i = 0; i < 4; i++) objects.push({ type: 'coin', x, y: y + (i * 34) / cam.ppm, r: 11, v: coinVal, vxs: 0 });
+      } else if (Math.random() < 0.025) {
+        objects.push({ type: 'coin', gold: true, x, y, r: 15, v: coinVal * 10, vxs: 0 }); // rare and worth ten
       } else objects.push({ type: 'coin', x, y, r: 11, v: coinVal, vxs: 0 });
     } else if (roll < 0.65) {
       objects.push({ type: 'fuel', x, y, r: 14, vxs: 0 });
@@ -541,11 +579,25 @@
         }
       }
       if (state !== 'flight') continue;
-      if (Math.hypot(sx - hx, sy - hy) < o.r + 16) touch(o, sx, sy);
+      const dist = Math.hypot(sx - hx, sy - hy);
+      if (dist < o.r + 16) touch(o, sx, sy);
+      else if (OBSTACLE[o.type] && !o.hit) {
+        if (dist < o.r + 16 + 36) o.close = true;
+        if (o.close && !o.nearPaid && sy > hy + o.r + 24) {
+          o.nearPaid = true;
+          fl.near++;
+          const v = Math.max(1, Math.round((1 + o.y / 120) * st.coin)) * 4;
+          rocket.coins += v;
+          combo++; comboT = 2.5; fl.bestCombo = Math.max(fl.bestCombo, combo);
+          floatText(o.x, o.y, T('near')(v), '#80ffdb');
+          burst(0.25, 0.25, 800, 3000, 'bandpass'); vib(15);
+        }
+      }
     }
     objects = objects.filter((o) => !o.dead && o.y > rocket.y - (H * 1.2) / cam.ppm);
   }
 
+  const OBSTACLE = { bird: 1, plane: 1, balloon: 1, sat: 1, meteor: 1, rock: 1, alien: 1, boss: 1 };
   function touch(o, sx, sy) {
     if (o.type === 'coin') {
       o.dead = true;
@@ -554,7 +606,11 @@
       fl.bestCombo = Math.max(fl.bestCombo, combo);
       const m = Math.min(5, 1 + Math.floor(combo / 5));
       rocket.coins += o.v * m;
-      floatText(o.x, o.y, '+' + o.v * m);
+      if (o.gold) {
+        floatText(o.x, o.y, T('golden')(o.v * m), '#fff3b0');
+        tone(1600, 0.1, 'triangle', 0.15, 2400); tone(2400, 0.25, 'triangle', 0.12, null, 0.08); vib(25);
+        for (let i = 0; i < 24; i++) part(o.x, o.y, { vx: rand(-200, 200), vy: rand(-200, 200), drag: 0.93, life: 0.7, size: 2.5, color: i % 2 ? '#fff3b0' : '#ffd23f', sparkle: true });
+      } else floatText(o.x, o.y, '+' + o.v * m);
       sfx.coin();
       if (uiCoins.length < 30) uiCoins.push({ x: sx, y: sy, t: 0 });
       for (let i = 0; i < 6; i++) part(o.x, o.y, { vx: rand(-80, 80), vy: rand(-80, 80), life: 0.4, size: 2, color: '#ffd23f' });
@@ -593,6 +649,7 @@
     } else if (!o.hit) {
       o.hit = true; o.dead = o.type !== 'balloon' && o.type !== 'sat' && o.type !== 'plane' && o.type !== 'boss';
       fl.hits++;
+      if (TYPE().id === 'koe') sfx.bell();
       if (combo >= 5) floatText(rocket.x, rocket.y, T('comboLost'), '#ffffff');
       combo = 0;
       const boss = o.type === 'boss';
@@ -627,6 +684,7 @@
     show('result', false); show('hud', false); show('ignite', false);
     renderShop();
     show('shop', true);
+    flushLater();
   }
 
   function resetCamera() {
@@ -695,8 +753,14 @@
     show('countdown', false);
     rocket = L.newRocket(st, boost);
     Object.assign(rocket, { shield: false, magnetT: 0, slowT: 0 });
-    fl = { bestCombo: 0, hits: 0, perfect: boost >= 1.3, powerups: 0 };
+    fl = { bestCombo: 0, hits: 0, perfect: boost >= 1.3, powerups: 0, near: 0 };
     if (fl.perfect) save.counters.perfects++;
+    // PERFECT launches in a row stack up a little extra push
+    save.perfectStreak = fl.perfect ? (save.perfectStreak || 0) + 1 : 0;
+    if (save.perfectStreak >= 2) {
+      rocket.boost += Math.min(0.15, 0.03 * (save.perfectStreak - 1));
+      label = T('perfectStreak')(save.perfectStreak);
+    }
     combo = 0; comboT = 0; bonusT = 0; bossMet = {};
     flightT = 0; ghostRec = []; ghostNext = 0;
     nextSpawnY = 12;
@@ -720,6 +784,8 @@
     sfx.launchFor(TYPE().id); vib(30);
     loopStart('thrust', 'lowpass', 500, 0.8);
     liftoffFx(TYPE());
+    stretch = 0.5;
+    if (TYPE().id === 'koe') sfx.bell();
   }
 
   // Smoke, fire, foam and other mess on the pad at liftoff, per vehicle.
@@ -768,6 +834,7 @@
     rocket.turboT = 1.2;
     sfx.turbo(); vib(40); shake = 6;
     toast('⚡ TURBO!', 600);
+    stretch = 0.35;
     updateTurboBtn();
   }
 
@@ -819,6 +886,8 @@
       zoneName = I.zone(save.zones, L);
     }
     const newRecord = maxH > save.record + 0.5 && save.flights > 0;
+    // just short of the record: say how close it was, so the next try feels winnable
+    const shortBy = save.record - maxH, soClose = !newRecord && save.record > 30 && shortBy > 0.5 && shortBy < save.record * 0.25;
     if (maxH > save.record + 0.5) save.ghost = { type: save.type, pts: ghostRec };
     save.record = Math.max(save.record, maxH);
     save.best = Math.max(save.best || 0, maxH);
@@ -847,7 +916,17 @@
     show('res-zone-line', zoneBonus > 0);
     $('res-zone').textContent = zoneName + ' +' + fmt(zoneBonus);
     show('res-record', newRecord);
+    show('res-close', soClose);
+    if (soClose) $('res-close').textContent = T('soClose')(fmt(Math.ceil(shortBy)));
     countUp('res-total', total, '+', ' 🪙', 0.5);
+    renderNextGoal();
+    if (save.flights % 8 === 0) {
+      const box = M.mysteryBox(save);
+      store();
+      // shown once the totals have counted up; if you already flew off again, it waits for the shed
+      laterReward = { icon: '🎁', title: T('boxTitle'), text: rewardText(box), coins: box.coins || 0 };
+      setTimeout(() => { if (state === 'result') flushLater(); }, 1400);
+    }
     lastTotal = total; doubled = false;
     show('btn-ad-double', false);
     show('result', true);
@@ -919,6 +998,115 @@
     }
   }
   setInterval(refreshAdButtons, 1000);
+
+  // ---------- after a flight: the next thing to buy, one tap away ----------
+  function nextGoal() {
+    const ne = L.EVOS[save.evo + 1];
+    if (ne && save.record >= ne.need) return { kind: 'evo', name: I.evo(save.evo + 1, L), cost: ne.cost };
+    let best = null;
+    for (const u of L.UPGRADES) {
+      const lv = save.lv[u.id];
+      if (lv >= u.max) continue;
+      const c = L.cost(u, lv);
+      if (!best || c < best.cost) best = { kind: 'upg', u, name: I.upgName(u), lv: lv + 1, cost: c };
+    }
+    return best;
+  }
+  function renderNextGoal() {
+    const g = nextGoal();
+    const b = $('btn-res-buy');
+    if (!g) { $('res-next-text').textContent = T('allMaxed'); $('res-next-bar').style.width = '100%'; show('btn-res-buy', false); return; }
+    const can = save.coins >= g.cost;
+    $('res-next-text').textContent = g.kind === 'evo' ? T('nextEvo')(g.name) : can ? T('nextBuy')(g.name, g.lv) : T('nextNeed')(g.name, g.lv, fmt(g.cost - save.coins));
+    $('res-next-bar').style.width = clamp((save.coins / g.cost) * 100, 0, 100) + '%';
+    b.textContent = T('buyFor')(fmt(g.cost));
+    show('btn-res-buy', can);
+  }
+  function buyFromResult() {
+    const g = nextGoal();
+    if (!g || save.coins < g.cost) return;
+    if (g.kind === 'evo') evolve(); else buy(g.u);
+    bump('btn-res-buy');
+    renderNextGoal();
+  }
+
+  // ---------- rewards that bring you back: welcome back, daily streak, mystery boxes ----------
+  const rewardQueue = [];
+  let rewardOpen = null;
+  function rewardText(r) {
+    if (r.kind === 'skin') return T('gotSkin')(r.skin.icon + ' ' + r.skin.name);
+    if (r.kind === 'turbo') return T('gotTurbo')(r.n);
+    return T('gotCoins')(fmt(r.coins));
+  }
+  // coins are already paid; the video adds the same amount again (adMult - 1 times)
+  function popReward(r) {
+    rewardQueue.push(r);
+    if (!rewardOpen) nextReward();
+  }
+  let laterReward = null;
+  function flushLater() {
+    if (laterReward) { popReward(laterReward); laterReward = null; }
+  }
+  function nextReward() {
+    rewardOpen = rewardQueue.shift() || null;
+    if (!rewardOpen) { show('reward', false); return; }
+    const r = rewardOpen;
+    $('reward-icon').textContent = r.icon;
+    $('reward-title').textContent = r.title;
+    $('reward-text').textContent = r.text;
+    $('reward-days').innerHTML = r.days || '';
+    const adMult = r.adMult || 2;
+    $('reward-ad').textContent = T('adTimes')(adMult);
+    show('reward-ad', r.coins > 0 && adReady());
+    // a mystery box rattles before it opens (the CSS times it); restart that on every box
+    const box = $('reward').querySelector('.reward-box');
+    box.classList.remove('box'); void box.offsetWidth;
+    show('reward', true);
+    if (r.icon === '🎁') {
+      box.classList.add('box');
+      for (let i = 0; i < 6; i++) tone(300 + i * 40, 0.05, 'square', 0.05, null, i * 0.12);
+      setTimeout(() => { sfx.perfect(); vib(60); }, 780);
+    } else { sfx.perfect(); vib(40); }
+  }
+  function afterReward() {
+    store();
+    if (state === 'result') renderNextGoal(); else renderShop();
+    nextReward();
+  }
+  $('reward-ok').addEventListener('click', () => { audioInit(); afterReward(); });
+  $('reward-ad').addEventListener('click', async () => {
+    const r = rewardOpen;
+    if (!r || !(await showAd('reward'))) return;
+    const extra = r.coins * ((r.adMult || 2) - 1);
+    save.coins += extra; store();
+    toast(T('gotCoins')(fmt(extra)), 1200);
+    afterReward();
+  });
+  // When the game opens (or comes back to the front): coins from while you were away, then today's streak.
+  function checkReturn(away) {
+    if (away && away.coins > 0) {
+      save.coins += away.coins;
+      popReward({ icon: '🌙', title: T('welcomeBack'), text: T('awayText')(fmt(away.coins), Math.max(1, Math.round(away.hours))), coins: away.coins, adMult: 3 });
+    }
+    if (save.flights > 0) {
+      const d = M.checkLogin(save);
+      if (d) {
+        let days = '';
+        for (let i = 1; i <= 7; i++) {
+          const L7 = M.LOGIN[i - 1], ic = L7.kind === 'box' ? '🎁' : L7.kind === 'turbo' ? '⚡' : '🪙';
+          days += '<div class="' + (i < d.streak ? 'done' : i === d.streak ? 'today' : '') + '"><b>' + ic + '</b>' + T('dayLabel')(i) + '</div>';
+        }
+        const r = d.kind === 'box' ? d.box : d;
+        popReward({ icon: d.kind === 'box' ? '🎁' : '🔥', title: T('dailyTitle')(d.streak), text: rewardText(r), coins: r.coins || 0, days });
+        for (const a of M.checkAchievements(save, null)) { // a 7-day streak earns a badge too
+          save.coins += a.reward;
+          toast(a.icon + ' ' + a.name + ' +' + fmt(a.reward) + ' 🪙', 2200);
+        }
+      }
+    }
+    store();
+    if (state === 'shop') renderShop();
+  }
 
   // ---------- shop ----------
   function renderShop() {
@@ -1263,7 +1451,7 @@
     // flame
     if (flame) {
       const turbo = flame > 1;
-      const len = (turbo ? 52 : 26) + Math.random() * 12;
+      const len = (turbo ? 52 : 26) + Math.random() * 12 + Math.min(20, save.lv.stuw * 0.8); // upgrades show
       const gr = c.createLinearGradient(0, base, 0, base + len);
       gr.addColorStop(0, turbo ? '#e0f7ff' : '#fff6c8');
       gr.addColorStop(0.35, turbo ? '#4cc9f0' : '#ffb703');
@@ -1387,13 +1575,32 @@
     const E = (ex, ey, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(ex, ey, rx, ry, 0, 0, 7); c.fill(); };
     const R = (rx, ry, w, h, col) => { c.fillStyle = col; c.fillRect(rx, ry, w, h); };
     if (flame) {
-      if (t.flame === 'beam' && flame === 1) {
+      if (t.flame === 'gas' && flame === 1) {
+        // a hissing jet of gas that billows out into soft green clouds, and stink lines
+        const jet = c.createLinearGradient(0, base, 0, base + 16);
+        jet.addColorStop(0, 'rgba(235,255,170,.95)'); jet.addColorStop(1, 'rgba(170,220,80,0)');
+        P([[-3, base - 2], [3, base - 2], [7 + Math.random() * 2, base + 16], [-7 - Math.random() * 2, base + 16]], jet);
+        for (let k = 0; k < 8; k++) {
+          const ph = (time * 2.4 + k / 8) % 1; // each puff drifts out, swells and fades
+          const px = Math.sin(time * 5 + k * 2.3) * (2 + ph * 9), py = base + 4 + ph * 46, pr = 4 + ph * 12;
+          const a = (1 - ph) * 0.85;
+          const g = c.createRadialGradient(px - pr * 0.3, py - pr * 0.35, 0.5, px, py, pr);
+          g.addColorStop(0, 'rgba(220,250,150,' + a + ')'); g.addColorStop(0.6, 'rgba(160,205,70,' + a * 0.8 + ')'); g.addColorStop(1, 'rgba(120,160,40,0)');
+          c.fillStyle = g; c.beginPath(); c.arc(px, py, pr, 0, 7); c.fill();
+        }
+        c.strokeStyle = 'rgba(150,200,60,.8)'; c.lineWidth = 1.4;
+        [-12, 12].forEach((sx) => {
+          c.beginPath();
+          for (let k = 0; k <= 8; k++) { const yy = base + 2 + k * 3; const xx = sx + Math.sin(k * 1.3 + time * 10) * 2; k ? c.lineTo(xx, yy) : c.moveTo(xx, yy); }
+          c.stroke();
+        });
+      } else if (t.flame === 'beam' && flame === 1) {
         const g = c.createLinearGradient(0, -24, 0, 70);
         g.addColorStop(0, 'rgba(124,252,0,.6)'); g.addColorStop(1, 'rgba(124,252,0,0)');
         P([[-8, -24], [8, -24], [22, 70], [-22, 70]], g);
       } else {
         const cols = FLAME[flame > 1 ? 'blue' : t.flame] || FLAME.fire;
-        const len = (flame > 1 ? 52 : t.flame === 'blue' ? 44 : 28) + Math.random() * 12;
+        const len = (flame > 1 ? 52 : t.flame === 'blue' ? 44 : 28) + Math.random() * 12 + Math.min(20, save.lv.stuw * 0.8);
         const g = c.createLinearGradient(0, base, 0, base + len);
         g.addColorStop(0, cols[0]); g.addColorStop(0.35, cols[1]); g.addColorStop(1, cols[2]);
         c.fillStyle = g;
@@ -1415,21 +1622,156 @@
         E(0, -34, 14, 12, '#ffffff'); E(0, -37, 11, 6, '#cfe8ff');
         P([[-6, -24], [6, -24], [4, 0], [-4, 0]], '#eeeeee');
         break;
-      case 'koe': case 'varken': { // head first, the gas comes out of the back
-        const pig = id === 'varken', body = pig ? '#f4a6b8' : '#ffffff', dark = pig ? '#e48aa0' : '#333333';
-        [[-16, -42], [-16, -18], [12, -42], [12, -18]].forEach(([lx, ly]) => R(lx, ly, 4, 6, dark));
-        E(0, -28, 13, 24, body);
-        if (!pig) { E(-5, -34, 5, 7, '#222'); E(6, -20, 4, 5, '#222'); E(4, -42, 3, 3, '#222'); }
-        E(0, -54, 9, 8, body);
+      case 'koe': case 'varken': { // a flying cartoon animal, head first; the gas comes out of the back
+        const pig = id === 'varken';
+        const skin = pig ? ['#ffd3df', '#f7a1b9', '#d9728f'] : ['#ffffff', '#eeeeee', '#bdbdbd'];
+        const line = pig ? '#7d2f49' : '#262626';
+        const kick = Math.sin(time * 15), flap = Math.sin(time * 9) * 0.35;
+        const strain = flame === 1; // squeezing one out
+        c.lineJoin = 'round'; c.lineCap = 'round';
+        // tail: a swishing cow tail with a tuft, or a pig's curl
+        c.strokeStyle = line; c.lineWidth = 2;
+        c.beginPath();
         if (pig) {
-          E(0, -58, 5, 3.5, '#e48aa0'); R(-2.5, -59, 1.5, 2, '#a0526a'); R(1, -59, 1.5, 2, '#a0526a');
-          P([[-8, -57], [-6, -64], [-3, -58]], '#e48aa0'); P([[8, -57], [6, -64], [3, -58]], '#e48aa0');
+          for (let k = 0; k <= 14; k++) {
+            const a = (k / 14) * Math.PI * 3.2 + time * 7, r = 1.2 + k * 0.22;
+            const tx = 3 + Math.cos(a) * r, ty = 1 + k * 0.55 + Math.sin(a) * r;
+            k ? c.lineTo(tx, ty) : c.moveTo(tx, ty);
+          }
+          c.stroke();
         } else {
-          E(0, -58, 6, 3.5, '#f4b6c2');
-          P([[-7, -58], [-12, -64], [-5, -60]], '#dddddd'); P([[7, -58], [12, -64], [5, -60]], '#dddddd');
+          const sw = Math.sin(time * 5) * 5;
+          c.moveTo(2, -5); c.quadraticCurveTo(6 + sw, 3, 4 + sw * 1.5, 10); c.stroke();
+          E(4 + sw * 1.5, 11.5, 2.4, 3.2, '#262626');
         }
-        R(-3.5, -53, 2, 2, '#111'); R(1.5, -53, 2, 2, '#111');
-        c.strokeStyle = dark; c.lineWidth = 2; c.beginPath(); c.moveTo(3, -4); c.quadraticCurveTo(9, 2, 4, 7); c.stroke();
+        // four legs paddling in the air, with hooves
+        [[-1, -40, 1], [1, -40, -1], [-1, -16, -1], [1, -16, 1]].forEach(([side, ly, ph]) => {
+          const swing = kick * ph * 3;
+          c.strokeStyle = line; c.lineWidth = 7.5;
+          c.beginPath(); c.moveTo(side * 9, ly); c.lineTo(side * 17, ly + swing); c.stroke();
+          c.strokeStyle = skin[1]; c.lineWidth = 5;
+          c.beginPath(); c.moveTo(side * 9, ly); c.lineTo(side * 17, ly + swing); c.stroke();
+          E(side * 18.5, ly + swing, 2.6, 3, pig ? '#7d2f49' : '#3a2a20');
+        });
+        // body: shaded, outlined
+        const bg = c.createRadialGradient(-5, -38, 2, 0, -28, 27);
+        bg.addColorStop(0, skin[0]); bg.addColorStop(0.65, skin[1]); bg.addColorStop(1, skin[2]);
+        c.fillStyle = bg; c.beginPath(); c.ellipse(0, -28, 13.5, 24, 0, 0, 7); c.fill();
+        c.strokeStyle = line; c.lineWidth = 1.6; c.stroke();
+        // a smooth blob through wobbly points (cow patches, mud)
+        const blob = (bx, by, br, sd, col) => {
+          const pts = [];
+          for (let k = 0; k < 7; k++) {
+            const a = (k / 7) * Math.PI * 2, r = br * (0.65 + hash(sd * 10 + k) * 0.6);
+            pts.push([bx + Math.cos(a) * r, by + Math.sin(a) * r * 1.15]);
+          }
+          c.fillStyle = col; c.beginPath();
+          const mid = (i) => [(pts[i][0] + pts[(i + 1) % 7][0]) / 2, (pts[i][1] + pts[(i + 1) % 7][1]) / 2];
+          c.moveTo(...mid(6));
+          for (let k = 0; k < 7; k++) c.quadraticCurveTo(pts[k][0], pts[k][1], ...mid(k));
+          c.fill();
+        };
+        c.save(); c.beginPath(); c.ellipse(0, -28, 13.5, 24, 0, 0, 7); c.clip();
+        if (!pig) {
+          // black patches, kept inside the body
+          [[-8, -36, 7.5, 1], [7, -21, 6.5, 2], [6, -44, 4.5, 3], [-6, -13, 4.5, 4], [9, -33, 3, 5]].forEach(([bx, by, br, sd]) => blob(bx, by, br, sd, '#1e1e1e'));
+        } else {
+          // a few mud splashes, and a crease under the chin
+          [[-7, -40, 4, 6], [8, -18, 3.5, 7], [-4, -12, 2.5, 8]].forEach(([bx, by, br, sd]) => blob(bx, by, br, sd, 'rgba(110,72,40,.55)'));
+          c.strokeStyle = 'rgba(125,47,73,.45)'; c.lineWidth = 1; c.beginPath(); c.arc(0, -56, 9, 0.35 * Math.PI, 0.65 * Math.PI); c.stroke();
+        }
+        c.restore();
+        if (!pig) {
+          // udder at the back, four teats
+          E(0, -8.5, 6.5, 4.2, '#f4a6b8');
+          c.strokeStyle = '#c4728a'; c.lineWidth = 1; c.beginPath(); c.ellipse(0, -8.5, 6.5, 4.2, 0, 0, 7); c.stroke();
+          for (let k = -1.5; k <= 1.5; k++) E(k * 2.6, -4.5, 0.9, 1.6, '#f4a6b8');
+        } else {
+          E(-3, -36, 4, 9, 'rgba(255,255,255,.2)'); // a shine on the round body
+        }
+        // the head looks at you: horns or pointy ears on top, the snout below the eyes
+        const hy = -57 + Math.sin(time * 6) * 0.8;
+        if (!pig) {
+          // horns, curving out and up
+          [-1, 1].forEach((side) => {
+            const hg2 = c.createLinearGradient(side * 5, hy - 7, side * 11, hy - 16);
+            hg2.addColorStop(0, '#f3e6c0'); hg2.addColorStop(1, '#a88a5a');
+            c.fillStyle = hg2; c.beginPath();
+            c.moveTo(side * 3.5, hy - 7); c.quadraticCurveTo(side * 11, hy - 8, side * 10.5, hy - 16);
+            c.quadraticCurveTo(side * 8, hy - 11, side * 6.5, hy - 5); c.closePath(); c.fill();
+            c.strokeStyle = '#6b5332'; c.lineWidth = 0.8; c.stroke();
+          });
+        }
+        // ears flap with the wind
+        [-1, 1].forEach((side) => {
+          c.save();
+          if (pig) {
+            c.translate(side * 6, hy - 6); c.rotate(side * (0.35 + flap * 0.6));
+            c.fillStyle = skin[1]; c.beginPath(); c.moveTo(-3.5, 1); c.lineTo(side * 2, -8); c.lineTo(3.5, 1); c.closePath(); c.fill();
+            c.strokeStyle = line; c.lineWidth = 1.2; c.stroke();
+            c.fillStyle = '#e47f9d'; c.beginPath(); c.moveTo(-1.8, 0); c.lineTo(side * 1.2, -5); c.lineTo(1.8, 0); c.closePath(); c.fill();
+          } else {
+            c.translate(side * 9, hy - 3); c.rotate(side * (0.35 + flap));
+            c.fillStyle = skin[1]; c.beginPath(); c.ellipse(side * 4, 0, 5.5, 2.8, 0, 0, 7); c.fill();
+            c.strokeStyle = line; c.lineWidth = 1.2; c.stroke();
+            c.fillStyle = '#f4b6c2'; c.beginPath(); c.ellipse(side * 4.3, 0, 3.4, 1.4, 0, 0, 7); c.fill();
+          }
+          c.restore();
+        });
+        const hg = c.createRadialGradient(-3, hy - 5, 1, 0, hy, 13);
+        hg.addColorStop(0, skin[0]); hg.addColorStop(1, skin[2]);
+        c.fillStyle = hg; c.beginPath(); c.ellipse(0, hy, 10, 9.5, 0, 0, 7); c.fill();
+        c.strokeStyle = line; c.lineWidth = 1.5; c.stroke();
+        if (!pig) {
+          c.save(); c.beginPath(); c.ellipse(0, hy, 10, 9.5, 0, 0, 7); c.clip();
+          blob(-5.5, hy - 3, 4.2, 9, '#1e1e1e'); // a patch over one eye
+          c.restore();
+          // a curly tuft between the horns
+          [-2.4, 0, 2.4].forEach((tx, k) => E(tx, hy - 8.6 + (k === 1 ? -0.8 : 0), 2, 1.8, '#5a3a22'));
+        } else {
+          c.strokeStyle = 'rgba(125,47,73,.5)'; c.lineWidth = 0.6;
+          for (let k = -2; k <= 2; k++) { c.beginPath(); c.moveTo(k * 1.4, hy - 9); c.lineTo(k * 1.8, hy - 11.5); c.stroke(); } // bristles
+        }
+        // eyes with lashes: looking up, blinking, squeezed shut while farting
+        const blink = time % 3.4 < 0.12;
+        [-1, 1].forEach((side) => {
+          const ex = side * 4, ey = hy - 2.5;
+          if (strain || blink) {
+            c.strokeStyle = !pig && side < 0 ? '#e8e8e8' : line; c.lineWidth = 1.4; // the left eye sits in the black patch
+            c.beginPath(); c.moveTo(ex - 2.2, ey + (strain ? -0.8 : 0)); c.lineTo(ex, ey + (strain ? 1 : 0)); c.lineTo(ex + 2.2, ey + (strain ? -0.8 : 0)); c.stroke();
+          } else {
+            E(ex, ey, 2.5, 3, '#ffffff'); E(ex + side * 0.2, ey - 0.9, 1.4, 1.7, '#111111'); E(ex - 0.4, ey - 1.6, 0.5, 0.5, '#ffffff');
+            c.strokeStyle = line; c.lineWidth = 0.7;
+            c.beginPath(); c.moveTo(ex + side * 1.6, ey - 2.4); c.lineTo(ex + side * 2.8, ey - 3.6); c.moveTo(ex + side * 0.4, ey - 3); c.lineTo(ex + side * 0.9, ey - 4.4); c.stroke();
+          }
+        });
+        E(-7, hy + 2, 1.8, 1.1, strain ? 'rgba(255,90,120,.8)' : 'rgba(255,120,150,.45)');
+        E(7, hy + 2, 1.8, 1.1, strain ? 'rgba(255,90,120,.8)' : 'rgba(255,120,150,.45)');
+        // snout / muzzle with nostrils, and a mouth that grits while it pushes
+        const sy0 = pig ? hy + 3.8 : hy + 4.8;
+        const sgr = c.createLinearGradient(0, sy0 - 4, 0, sy0 + 4);
+        sgr.addColorStop(0, pig ? '#f8a5c0' : '#f9c6d2'); sgr.addColorStop(1, pig ? '#e8789a' : '#e897ab');
+        c.fillStyle = sgr; c.beginPath(); c.ellipse(0, sy0, pig ? 5.5 : 7.5, pig ? 4 : 4.6, 0, 0, 7); c.fill();
+        c.strokeStyle = line; c.lineWidth = 1.2; c.stroke();
+        E(-2.3, sy0 - 0.4, pig ? 1 : 1.2, pig ? 1.6 : 1.4, line); E(2.3, sy0 - 0.4, pig ? 1 : 1.2, pig ? 1.6 : 1.4, line);
+        c.strokeStyle = line; c.lineWidth = 1;
+        c.beginPath();
+        if (strain) { c.moveTo(-3, sy0 + 2.9); for (let k = 1; k <= 6; k++) c.lineTo(-3 + k, sy0 + 2.9 + (k % 2 ? -0.7 : 0.4)); }
+        else { c.moveTo(-2.5, sy0 + 2.6); c.quadraticCurveTo(0, sy0 + 4, 2.5, sy0 + 2.6); }
+        c.stroke();
+        if (!pig) {
+          // a real cow bell on a red strap, swinging
+          const swing = Math.sin(time * 7) * 0.25;
+          c.strokeStyle = '#c0392b'; c.lineWidth = 2; c.beginPath(); c.moveTo(-8, hy + 6); c.quadraticCurveTo(0, hy + 11, 8, hy + 6); c.stroke();
+          c.save(); c.translate(0, hy + 9.8); c.rotate(swing);
+          const bel = c.createLinearGradient(-4, 0, 4, 0);
+          bel.addColorStop(0, '#b8860b'); bel.addColorStop(0.4, '#ffe08a'); bel.addColorStop(1, '#a0740a');
+          c.fillStyle = bel; c.beginPath();
+          c.moveTo(-2.2, 0.4); c.lineTo(2.2, 0.4); c.quadraticCurveTo(3, 3, 4.2, 6); c.lineTo(-4.2, 6); c.quadraticCurveTo(-3, 3, -2.2, 0.4); c.fill();
+          c.strokeStyle = '#6e5208'; c.lineWidth = 0.8; c.stroke();
+          E(0, 6.6, 1.3, 1.1, '#5a4306'); // the clapper
+          c.restore();
+        }
         break;
       }
       case 'gas':
@@ -2189,6 +2531,12 @@
         case 'coin': {
           // a spinning gold coin: dark outline, rim, shaded face, a stamped ring and a glint
           const sq = Math.abs(Math.cos(time * 4 + o.x));
+          if (o.gold) {
+            const gg = cx.createRadialGradient(0, 0, 4, 0, 0, 30);
+            gg.addColorStop(0, 'rgba(255,240,160,.7)'); gg.addColorStop(1, 'rgba(255,200,60,0)');
+            cx.fillStyle = gg; cx.beginPath(); cx.arc(0, 0, 30, 0, 7); cx.fill();
+            cx.scale(1.4, 1.4);
+          }
           cx.fillStyle = '#6b4300'; cx.beginPath(); cx.ellipse(0, 0, 12 * sq + 2.5, 12.5, 0, 0, 7); cx.fill();
           cx.fillStyle = '#d99a00'; cx.beginPath(); cx.ellipse(0, 0, 11 * sq + 1.5, 11, 0, 0, 7); cx.fill();
           const cg = cx.createLinearGradient(0, -9, 0, 9);
@@ -2415,6 +2763,7 @@
     }
     time += dt;
     shake *= Math.exp(-8 * dt);
+    stretch *= Math.exp(-6 * dt);
     env.flash = Math.max(0, env.flash - dt * 3);
 
     if (state === 'countdown') {
@@ -2458,6 +2807,13 @@
       rocket.slowT = Math.max(0, rocket.slowT - dt);
       if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
       setText('hud-combo', combo >= 3 ? T('combo')(combo, Math.min(5, 1 + Math.floor(combo / 5))) : '');
+      const gi = L.BODIES.findIndex((b) => b.y > rocket.y);
+      if (gi >= 0) {
+        const from = gi ? L.BODIES[gi - 1].y : 0, b = L.BODIES[gi];
+        setText('hud-goal', T('goal')(b.icon, I.zone(7 + gi, L), Math.floor(clamp((rocket.y - from) / (b.y - from), 0, 1) * 100)));
+      } else setText('hud-goal', '');
+      if (TYPE().id === 'koe' && Math.random() < dt / 6) { sfx.moo(); floatText(rocket.x, rocket.y, T('moo'), '#ffffff'); }
+      if (TYPE().id === 'varken' && Math.random() < dt / 6) { sfx.oink(); floatText(rocket.x, rocket.y, T('oink'), '#ffc2d1'); }
       setText('hud-power', (rocket.shield ? '🛡️ ' : '') + (rocket.magnetT > 0 ? '🧲' + Math.ceil(rocket.magnetT) + ' ' : '') + (rocket.slowT > 0 ? '⏳' + Math.ceil(rocket.slowT) : ''));
       if (bonusT > 0) {
         // coin rain: coins pour down just ahead of you
@@ -2472,6 +2828,7 @@
       if (rocket.stageN > stageShown) {
         // the spent stage tumbles away and the next one roars
         stageShown = rocket.stageN;
+        stretch = 0.35;
         toast(T('stage2'), 900);
         sfx.turbo(); vib(60); shake = 10;
         part(rocket.x, rocket.y, { vx: rand(-40, 40), vy: 40, g: 300, life: 1.4, max: 1.4, size: 6, color: '#555b6e', glow: false });
@@ -2575,7 +2932,9 @@
         cx.fillStyle = g; cx.beginPath(); cx.arc(x, y + 10, r, 0, 7); cx.fill();
         cx.restore();
       }
+      if (stretch > 0.01) { cx.save(); cx.translate(x, y); cx.scale(1 - stretch * 0.25, 1 + stretch * 0.35); cx.translate(-x, -y); }
       drawRocket(cx, x, y, rocket.ang, EVO(), 1, flame, TYPE(), rocket.stageN);
+      if (stretch > 0.01) cx.restore();
     }
     cx.restore();
     if (env.flash > 0) { cx.fillStyle = 'rgba(210,220,255,' + env.flash * 0.2 + ')'; cx.fillRect(0, 0, W, H); }
@@ -2743,6 +3102,8 @@
   $('btn-light').addEventListener('click', light);
   $('btn-turbo').addEventListener('pointerdown', (e) => { e.stopPropagation(); useTurbo(); });
   $('btn-continue').addEventListener('click', goShop);
+  $('btn-again').addEventListener('click', goIgnite);
+  $('btn-res-buy').addEventListener('click', buyFromResult);
   $('btn-ad-double').addEventListener('click', adDouble);
   $('btn-ad-boost').addEventListener('click', adBoost);
   $('btn-privacy').addEventListener('click', () => { try { window.AndroidBridge.showPrivacyOptions(); } catch (e) { /* browser */ } });
@@ -2759,19 +3120,27 @@
     $('splash').classList.add('gone');
     setTimeout(() => show('splash', false), 500);
     musicStart();
+    setTimeout(() => checkReturn(awayAtStart), 600);
   }
   $('splash').addEventListener('pointerdown', closeSplash);
 
   // Android back button: the wrapper asks us first.
   window.vpBack = function () {
-    if (state === 'shop') return 'exit';
     if (!$('splash').classList.contains('gone')) { closeSplash(); return 'ok'; }
     if (!$('modal').classList.contains('hidden')) { $('modal-no').click(); return 'ok'; }
+    if (!$('reward').classList.contains('hidden')) { $('reward-ok').click(); return 'ok'; }
+    if (!$('collection').classList.contains('hidden')) { show('collection', false); return 'ok'; }
+    if (state === 'shop') return 'exit';
     if (state === 'ignite' && !ign) { goShop(); return 'ok'; }
     if (state === 'result') { goShop(); return 'ok'; }
     return 'ok';
   };
+  let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { store(); hiddenAt = Date.now(); } else if (hiddenAt && state === 'shop') {
+      // back after a long break without the app being closed
+      checkReturn(M.offlineCoins(Object.assign({}, save, { lastSeen: hiddenAt }), Date.now()));
+    }
     if (!A.ctx) return;
     if (document.hidden) A.ctx.suspend(); else A.ctx.resume();
   });
@@ -2781,15 +3150,17 @@
   // test hook
   window.__vp = {
     get state() { return state; }, get rocket() { return rocket; }, get save() { return save; },
-    get combo() { return combo; }, get music() { return music.on; }, closeSplash, get bonusT() { return bonusT; }, get weather() { return weather; },
+    get combo() { return combo; }, get flight() { return fl; }, get music() { return music.on; }, closeSplash, get bonusT() { return bonusT; }, get weather() { return weather; },
     // for the store-art script: draw any rocket on any canvas, and jump to a height
     paint(c, x, y, o) { drawRocket(c, x, y, o.ang || 0, L.EVOS[o.evo || 0], o.scale || 1, o.flame || 0, L.TYPES[o.type || 0], 1); },
     warp(y) {
       rocket.y = rocket.maxY = y; cam.y = y; nextSpawnY = y + 20; objects = []; recordAtLaunch = Math.max(recordAtLaunch, y + 400);
       rocket.vy = Math.max(rocket.vy, 300); rocket.fuel = Math.max(rocket.fuel, 3);
     },
-    spawnAhead(type, extra, aheadPx) {
-      objects.push(Object.assign({ type, x: rocket.x, y: rocket.y + (aheadPx || 40) / cam.ppm, r: 16, vxs: 0, v: 1, t: 0 }, extra || {}));
+    spawnAhead(type, extra, aheadPx, sidePx) {
+      // sidePx: that far beside the nose, wherever the rocket points
+      const nose = sidePx ? (Math.sin(rocket.ang) * 30 * EVO().size + sidePx) / cam.ppm : 0;
+      objects.push(Object.assign({ type, x: rocket.x + nose, y: rocket.y + (aheadPx || 40) / cam.ppm, r: 16, vxs: 0, v: 1, t: 0 }, extra || {}));
     },
   };
 

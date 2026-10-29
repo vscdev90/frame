@@ -13,7 +13,14 @@ page.on('dialog', (d) => { errors.push('native dialog used: ' + d.message()); d.
 const shot = async (n) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${n}.png` }); };
 const state = () => page.evaluate(() => window.__vp.state);
 // the splash screen covers everything until it is tapped
-const reload = async () => { await page.reload(); await page.click('#splash'); await page.waitForTimeout(550); };
+// reward popups (daily streak, mystery box) can turn up after a flight or a reload; tap them away
+const popups = [];
+const dismissRewards = async (p) => {
+  // a plain click would set off the handler below a second time, so send the event directly
+  while (await p.isVisible('#reward')) { popups.push(await p.textContent('#reward-title')); await p.dispatchEvent('#reward-ok', 'click'); }
+};
+await page.addLocatorHandler(page.locator('#reward'), () => dismissRewards(page));
+const reload = async () => { await page.reload(); await page.click('#splash'); await page.waitForTimeout(900); await dismissRewards(page); };
 
 await page.goto(BASE + '/index.html');
 await page.waitForTimeout(300);
@@ -50,8 +57,15 @@ for (let flight = 0; flight < 3; flight++) {
   await shot('3-flight');
   for (let i = 0; i < 80 && (await state()) !== 'result'; i++) await page.waitForTimeout(250);
   if (await state() !== 'result') throw new Error('flight never ended');
+  await page.waitForTimeout(900);
   await shot('4-result');
-  await page.click('#btn-continue');
+  if (!(await page.textContent('#res-next-text')).trim()) throw new Error('result screen shows no next goal');
+  if (flight === 0) {
+    // FLY AGAIN goes straight back to the launch pad
+    await page.dispatchEvent('#btn-again', 'click'); // it pulses, so it never holds still
+    if (await state() !== 'ignite') throw new Error('fly again did not go to the launch pad');
+    if ((await page.evaluate(() => window.vpBack())) !== 'ok' || (await state()) !== 'shop') throw new Error('back did not leave the launch pad');
+  } else await page.click('#btn-continue');
 }
 const save = await page.evaluate(() => window.__vp.save);
 if (save.flights !== 3 || save.coins <= 0) throw new Error('save not updated: ' + JSON.stringify(save));
@@ -99,7 +113,12 @@ await page.click('#btn-light');
 await page.waitForTimeout(500);
 await page.mouse.click(195, 400);
 const vp = (fn, arg) => page.evaluate(fn, arg);
+await vp(() => { window.__vp.rocket.fuel += 6; }); // a long burn, so there is time for everything below
 await page.waitForTimeout(300);
+// a near miss (while the rocket is still fast): a balloon just beside you pays out once it is behind you
+await vp(() => window.__vp.spawnAhead('balloon', { r: 17 }, 60, 17 + 16 + 18));
+for (let k = 0; k < 25 && !(await vp(() => window.__vp.flight.near)); k++) await page.waitForTimeout(150);
+if (!((await vp(() => window.__vp.flight.near)) >= 1)) throw new Error('close call not counted');
 await vp(() => window.__vp.spawnAhead('shield'));
 await page.waitForTimeout(400);
 if (!(await vp(() => window.__vp.rocket.shield))) throw new Error('shield not picked up');
@@ -111,6 +130,11 @@ await vp(() => { for (let i = 0; i < 8; i++) window.__vp.spawnAhead('coin', { r:
 await page.waitForTimeout(600);
 if ((await vp(() => window.__vp.combo)) < 5) throw new Error('coins in a row did not build a combo');
 await shot('12-combo');
+// a golden coin is worth ten
+const g0 = await vp(() => window.__vp.rocket.coins);
+await vp(() => window.__vp.spawnAhead('coin', { r: 15, v: 10, gold: true }));
+await page.waitForTimeout(400);
+if ((await vp(() => window.__vp.rocket.coins)) - g0 < 10) throw new Error('golden coin did not pay');
 await vp(() => window.__vp.spawnAhead('goldcloud', { r: 38 }));
 await page.waitForTimeout(400);
 if (!((await vp(() => window.__vp.bonusT)) > 0)) throw new Error('golden cloud did not start a coin rain');
@@ -132,7 +156,13 @@ const dl = page.waitForEvent('download', { timeout: 5000 });
 await page.click('#btn-share');
 const file = await dl;
 if (!/^rocket-\d+m\.png$/.test(file.suggestedFilename())) throw new Error('unexpected share file ' + file.suggestedFilename());
+await page.waitForTimeout(900);
 await shot('15-result');
+const lv0 = await page.evaluate(() => Object.values(window.__vp.save.lv).reduce((a, b) => a + b, 0));
+if (!(await page.isVisible('#btn-res-buy'))) throw new Error('no buy button on the result screen');
+await page.click('#btn-res-buy');
+const lv1 = await page.evaluate(() => Object.values(window.__vp.save.lv).reduce((a, b) => a + b, 0) + window.__vp.save.evo);
+if (lv1 <= lv0) throw new Error('buy on the result screen did nothing');
 await page.click('#btn-continue');
 
 // there is no cheat mode: five taps on the title change nothing
@@ -241,6 +271,64 @@ await page.click('#btn-reset');
 await page.click('#modal-no');
 if ((await page.evaluate(() => window.__vp.save.prestige)) !== 1) throw new Error('cancel should keep the save');
 await shot('16-universe');
+// today's streak popped up after a reload
+if (!popups.some((t) => t.includes('Day 1 streak'))) throw new Error('no daily streak popup: ' + popups.join(', '));
+
+// coming back after three hours, on day 7 of a streak: coins from your fans, then the big daily prize
+{
+  const back = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  back.on('pageerror', (e) => errors.push('back pageerror: ' + e.message));
+  await back.addInitScript(() => {
+    if (sessionStorage.getItem('set')) return;
+    sessionStorage.setItem('set', '1');
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const key = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
+    localStorage.setItem('vuurpijl-save-v1', JSON.stringify({ coins: 100, record: 900, best: 900, flights: 12, lastSeen: Date.now() - 3 * 3600000, login: { day: key, streak: 6 } }));
+  });
+  await back.goto(BASE + '/index.html');
+  await back.click('#splash');
+  await back.waitForSelector('#reward:not(.hidden)', { timeout: 3000 });
+  if (!(await back.textContent('#reward-title')).includes('Welcome back')) throw new Error('no welcome back popup');
+  if (!(await back.textContent('#reward-text')).includes('(3 h)')) throw new Error('away time wrong: ' + (await back.textContent('#reward-text')));
+  const c1 = await back.evaluate(() => window.__vp.save.coins);
+  if (!(c1 > 100)) throw new Error('offline coins not paid');
+  if (SHOTS) await back.screenshot({ path: SHOTS + '/25-welcome-back.png' });
+  await back.click('#reward-ok');
+  if (!(await back.textContent('#reward-title')).includes('Day 7 streak')) throw new Error('day 7 streak popup missing');
+  if ((await back.$$('#reward-days > div')).length !== 7 || !(await back.$('#reward-days > div:nth-child(7).today'))) throw new Error('streak days not shown');
+  // both are paid at once: 3 h of fans (about 190 an hour here) and ten times the daily base (about 1,160)
+  const c2 = await back.evaluate(() => window.__vp.save.coins);
+  if (!(c2 >= 100 + 3 * 190 * 0.9 + 10 * 1160 * 0.9)) throw new Error('welcome back and day 7 paid too little: ' + (c2 - 100));
+  if (SHOTS) await back.screenshot({ path: SHOTS + '/26-streak.png' });
+  await back.click('#reward-ok');
+  if (await back.isVisible('#reward')) throw new Error('popups did not close');
+  const lg = await back.evaluate(() => window.__vp.save.login.streak);
+  if (lg !== 7) throw new Error('streak not saved');
+  // the same day again: nothing new
+  await back.reload();
+  await back.click('#splash');
+  await back.waitForTimeout(1200);
+  if (await back.isVisible('#reward')) throw new Error('daily reward paid twice on one day');
+  // the 8th flight ends with a mystery box; and it lands just short of the record
+  await back.evaluate(() => { Object.assign(window.__vp.save, { flights: 7 }); Object.assign(window.__vp.save.lv, { kruit: 4, stuw: 4, aero: 4 }); });
+  await back.click('#btn-launch'); await back.click('#btn-light'); await back.waitForTimeout(500);
+  await back.mouse.click(195, 400);
+  for (let k = 0; k < 300 && (await back.evaluate(() => window.__vp.state)) !== 'result'; k++) {
+    if ((await back.evaluate(() => window.__vp.state)) === 'boom') {
+      await back.evaluate(() => { window.__vp.save.record = Math.round(window.__vp.rocket.maxY) + 12; });
+      await back.mouse.click(195, 400);
+    }
+    await back.waitForTimeout(150);
+  }
+  if (!(await back.isVisible('#res-close')) || !/SO CLOSE! Only 1\d m short/.test(await back.textContent('#res-close'))) throw new Error('no "so close" line: ' + (await back.textContent('#res-close')));
+  await back.waitForTimeout(1700);
+  if (!(await back.isVisible('#reward')) || !(await back.textContent('#reward-title')).includes('Mystery box')) throw new Error('no mystery box on flight 8');
+  if (SHOTS) await back.screenshot({ path: SHOTS + '/27-mystery-box.png' });
+  await back.click('#reward-ok');
+  await back.click('#btn-continue');
+  await back.close();
+}
+
 // The Android app: rewarded videos through the Android bridge (mocked here).
 {
   const app = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -261,6 +349,15 @@ await shot('16-universe');
   await app.waitForTimeout(500);
   const old = await app.evaluate(() => window.__vp.save);
   if ('god' in old || 'cheats' in old || 'infFuel' in old) throw new Error('old cheat settings were not cleaned out of the save');
+  // a returning player gets today's streak reward, and a video doubles it
+  await app.waitForSelector('#reward:not(.hidden)', { timeout: 3000 });
+  if (!(await app.isVisible('#reward-ad'))) throw new Error('reward popup has no video button');
+  const r0 = await app.evaluate(() => window.__vp.save.coins);
+  await app.click('#reward-ad');
+  await app.waitForTimeout(300);
+  if (!((await app.evaluate(() => window.__vp.save.coins)) > r0)) throw new Error('reward video paid nothing');
+  if (await app.isVisible('#reward')) throw new Error('reward popup did not close after the video');
+  await app.addLocatorHandler(app.locator('#reward'), () => dismissRewards(app));
   // free boost: a video gives +2 turbo on the next flight
   await app.waitForTimeout(1200);
   await app.click('#btn-ad-boost');
@@ -287,7 +384,7 @@ await shot('16-universe');
   await app.click('#btn-collection');
   if (!(await app.isVisible('#btn-privacy'))) throw new Error('privacy options button missing');
   if (!(await app.textContent('#col-stats')).includes('v1.0.99')) throw new Error('version missing');
-  if ((await app.evaluate(() => window.__ads)) !== 2) throw new Error('expected two videos');
+  if ((await app.evaluate(() => window.__ads)) !== 3) throw new Error('expected three videos');
   await app.close();
 }
 

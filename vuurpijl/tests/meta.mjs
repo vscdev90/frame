@@ -56,4 +56,30 @@ assert.equal(next.evo, 0);
 assert.deepEqual(next.skins, ['none', 'crown']);
 assert.equal(next.flights, 200);
 assert.equal(L.stats(next).coin, 1.5);
+// daily streak: day 1, then 2 the next day, back to 1 after a missed day; paid at once
+const s4 = Object.assign(L.freshSave(), { record: 1000, coins: 0 });
+const r1 = M.checkLogin(s4, new Date(2026, 9, 18), () => 0.9);
+assert.equal(r1.streak, 1); assert.equal(s4.coins, r1.coins);
+assert.equal(M.checkLogin(s4, new Date(2026, 9, 18)), null, 'only once a day');
+assert.equal(M.checkLogin(s4, new Date(2026, 9, 19)).streak, 2);
+assert.equal(M.checkLogin(s4, new Date(2026, 9, 22)).streak, 1, 'a missed day restarts the streak');
+s4.login = { day: M.dayKey(new Date(2026, 9, 29)), streak: 7 };
+assert.equal(M.checkLogin(s4, new Date(2026, 9, 30)).streak, 1, 'after day 7 it starts over');
+
+// offline coins: nothing for a short break or a brand-new player, capped at 8 hours
+const s5 = Object.assign(L.freshSave(), { record: 2000, best: 2000, flights: 10, lastSeen: 0 });
+assert.equal(M.offlineCoins(s5, 1e12).coins, 0, 'no lastSeen, no coins');
+s5.lastSeen = 1e12;
+assert.equal(M.offlineCoins(s5, 1e12 + 5 * 60 * 1000).coins, 0, 'five minutes is nothing');
+const two = M.offlineCoins(s5, 1e12 + 2 * 3600 * 1000).coins, full = M.offlineCoins(s5, 1e12 + 24 * 3600 * 1000).coins;
+assert.ok(two > 0 && full === two * 4, 'capped at 8 hours');
+
+// mystery boxes give a skin, turbo or coins
+const s6 = Object.assign(L.freshSave(), { record: 500 });
+assert.equal(M.mysteryBox(s6, () => 0.1).kind, 'skin');
+assert.equal(s6.skins.length, 2);
+assert.equal(M.mysteryBox(s6, () => 0.3).kind, 'turbo');
+assert.equal(s6.bonusTurbo, 3);
+const box = M.mysteryBox(s6, () => 0.9);
+assert.ok(box.kind === 'coins' && s6.coins === box.coins);
 console.log('meta ok');
